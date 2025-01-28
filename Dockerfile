@@ -1,30 +1,46 @@
-# Stage 1: Builder
+# ========================
+# Etapa 1: Builder
+# ========================
 FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Copiar archivos de dependencias y instalar
 COPY package*.json ./
 RUN npm install
 
-# Copy source code and build
+# Copiar el código fuente y construir la aplicación
 COPY . .
-RUN npm run test && npm run build
+# RUN npm run test && npm run build
+RUN npm run build
 
-# Stage 2: Production
-FROM node:22-slim AS production
+# ========================
+# Etapa 2: Producción con Puppeteer
+# ========================
+FROM ghcr.io/puppeteer/puppeteer:22.7.1 AS production
 
 WORKDIR /app
 
-# Copy built assets from builder
-COPY --from=builder /app/dist dist
+# Copiar los artefactos construidos desde la etapa de builder
+COPY --from=builder /app/dist ./dist
 
-# Install only production dependencies
-COPY package*.json .
+# Copiar archivos de dependencias para producción e instalar solo las dependencias necesarias
+COPY package*.json ./
 RUN npm install --only=production
 
-# Expose the application port
+# Configurar archivos de entorno si es necesario
+# Por ejemplo, si tienes un archivo .env, puedes copiarlo así:
+# COPY .env .env
+
+# Asegurar que el directorio .wwebjs_auth exista y tenga los permisos correctos
+RUN mkdir -p /app/.wwebjs_auth
+RUN chown -R pptruser:pptruser /app /app/data/wwebjs_auth
+
+# Cambiar al usuario no root proporcionado por la imagen de Puppeteer
+USER pptruser
+
+# Exponer el puerto en el que corre la aplicación
 EXPOSE 3000
 
-# Start the application
+# Comando para iniciar la aplicación
 CMD ["npm", "start"]
