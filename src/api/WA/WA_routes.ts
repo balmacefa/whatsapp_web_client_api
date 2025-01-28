@@ -1,20 +1,33 @@
 import { Server } from '@hapi/hapi';
 import { MessageMedia } from 'whatsapp-web.js';
-import { WhatsAppClientWrapper } from './WhatsAppClientWrapper';
+import { ClientConfig, WhatsAppClientWrapper } from './WhatsAppClientWrapper';
+import { ClientRepository } from './items_db_repository';
 
 export const WhatsAppClientDefineRoutes = async (server: Server) => {
 
-    const wrapper = new WhatsAppClientWrapper();
+    const clientRepository = new ClientRepository();
+
+    const whatsappWrapper = new WhatsAppClientWrapper(clientRepository);
+
+    // Inicializar la tabla de clientes y restaurar sesiones existentes
+    await whatsappWrapper.initialize();
+
+
 
     // Endpoint para crear un nuevo cliente
     server.route({
         method: 'POST',
         path: '/clients',
         handler: (request, h) => {
-            const { id } = request.payload as { id: string };
+            const { id, webhookUrl } = request.payload as ClientConfig;
             try {
-                wrapper.createClient(id);
-                return h.response({ message: `Client ${id} created successfully.` }).code(201);
+                whatsappWrapper.addClient({ id, webhookUrl });
+                return h.response(
+                    {
+                        id,
+                        webhookUrl,
+                        message: `Client ${id} created successfully.`
+                    }).code(201);
             } catch (error: any) {
                 return h.response({ error: error.message }).code(400);
             }
@@ -26,7 +39,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
         method: 'GET',
         path: '/clients',
         handler: (request, h) => {
-            const clients = wrapper.listClients();
+            const clients = whatsappWrapper.listClients();
             return h.response({ clients });
         },
     });
@@ -38,7 +51,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
         handler: (request, h) => {
             const { id } = request.params;
             try {
-                const status = wrapper.getClientStatus(id);
+                const status = whatsappWrapper.getClientStatus(id);
                 return h.response({ id, status });
             } catch (error: any) {
                 return h.response({ error: error.message }).code(404);
@@ -53,7 +66,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
         handler: (request, h) => {
             const { id } = request.params;
             try {
-                wrapper.removeClient(id);
+                whatsappWrapper.removeClient(id);
                 return h.response({ message: `Client ${id} removed successfully.` });
             } catch (error: any) {
                 return h.response({ error: error.message }).code(404);
@@ -69,7 +82,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             const { id } = request.params;
             const { url } = request.payload as { url: string };
             try {
-                wrapper.setWebhook(id, url);
+                whatsappWrapper.setWebhook(id, url);
                 return h.response({ message: `Webhook set for client ${id}.` });
             } catch (error: any) {
                 return h.response({ error: error.message }).code(400);
@@ -85,7 +98,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             const { id } = request.params;
             const { to, message } = request.payload as { to: string; message: string };
             try {
-                await wrapper.sendMessage(id, to, message);
+                await whatsappWrapper.sendMessage(id, to, message);
                 return h.response({ message: `Message sent to ${to} from client ${id}.` });
             } catch (error: any) {
                 return h.response({ error: error.message }).code(400);
@@ -102,7 +115,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             const { to, file, caption } = request.payload as { to: string; file: string; caption?: string };
             try {
                 const media = MessageMedia.fromFilePath(file); // Leer el archivo local
-                await wrapper.sendMedia(id, to, media, caption);
+                await whatsappWrapper.sendMedia(id, to, media, caption);
                 return h.response({ message: `Media sent to ${to} from client ${id}.` });
             } catch (error: any) {
                 return h.response({ error: error.message }).code(400);
@@ -117,7 +130,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
         handler: (request, h) => {
             const { id } = request.params;
             try {
-                const qr = wrapper.getQRCode(id);
+                const qr = whatsappWrapper.getQRCode(id);
                 if (qr) {
                     return h.response({ qr }).type('application/json');
                 } else {

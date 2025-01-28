@@ -1,136 +1,67 @@
 import db from '../../server/KnexDatabase';
 
-export interface Item {
-    id: number;
-    name: string;
-    price: number;
+export interface ClientModel {
+    id: string;
+    webhook_url: string;
+    created_at?: Date;
+    updated_at?: Date;
 }
 
-export interface IItemRepository {
-    initializeItemsTable(): Promise<void>;
-    doesItemExist(id: number): Promise<boolean>;
-    createItem(name: string, price: number): Promise<Item>;
-    readItem(id: number): Promise<Item | null>;
-    updateItem(id: number, newName?: string, newPrice?: number): Promise<Item | null>;
-    deleteItem(id: number): Promise<boolean>;
-    listAllItems(): Promise<Item[]>;
-}
-
-
-export class ItemRepository implements IItemRepository {
+export class ClientRepository {
     /**
-     * Creates the 'items' table if it does not exist.
+     * Inicializa la tabla 'clients' si no existe.
      */
-    async initializeItemsTable(): Promise<void> {
-        const exists = await db.schema.hasTable('items');
-
+    async initializeClientsTable(): Promise<void> {
+        const exists = await db.schema.hasTable('clients');
         if (!exists) {
-            await db.schema.createTable('items', (table) => {
-                table.increments('id').primary();
-                table.string('name').notNullable();
-                table.float('price').notNullable();
+            await db.schema.createTable('clients', (table) => {
+                table.string('id').primary();
+                table.string('webhook_url').notNullable();
+                table.timestamps(true, true);
             });
         }
     }
 
     /**
-     * Checks if an item with the given ID exists in the database.
-     * @param id - The ID of the item to check.
-     * @returns A promise that resolves to true if the item exists, false otherwise.
+     * Crea un nuevo cliente en la tabla 'clients'.
+     * @param client - El objeto cliente a crear.
      */
-    async doesItemExist(id: number): Promise<boolean> {
-        const row = await db<Item>('items')
-            .where({ id })
-            .select('id')
-            .first();
-
-        return !!row;
+    async createClient(client: ClientModel): Promise<void> {
+        await db('clients').insert(client);
     }
 
     /**
-     * Creates a new item in the 'items' table.
-     * @param name - The name of the item.
-     * @param price - The price of the item.
-     * @returns A promise that resolves to the created Item.
+     * Obtiene un cliente por su ID.
+     * @param id - El ID del cliente.
+     * @returns El cliente si existe, o null si no.
      */
-    async createItem(name: string, price: number): Promise<Item> {
-        const [newId] = await db('items').insert({ name, price });
-
-        const newItem = await db<Item>('items').where({ id: newId }).first();
-        if (!newItem) {
-            throw new Error('Failed to create item');
-        }
-        return newItem;
+    async getClientById(id: string): Promise<ClientModel | null> {
+        const client = await db<ClientModel>('clients').where({ id }).first();
+        return client || null;
     }
 
     /**
-     * Retrieves an item by its ID.
-     * @param id - The ID of the item to retrieve.
-     * @returns A promise that resolves to the Item if found, or null otherwise.
+     * Actualiza la URL del webhook para un cliente específico.
+     * @param id - El ID del cliente.
+     * @param webhookUrl - La nueva URL del webhook.
      */
-    async readItem(id: number): Promise<Item | null> {
-        const item = await db<Item>('items')
-            .where({ id })
-            .first();
-
-        return item || null;
+    async updateWebhook(id: string, webhookUrl: string): Promise<void> {
+        await db<ClientModel>('clients').where({ id }).update({ webhook_url: webhookUrl, updated_at: db.fn.now() });
     }
 
     /**
-     * Updates an existing item.
-     * @param id - The ID of the item to update.
-     * @param newName - The new name for the item (optional).
-     * @param newPrice - The new price for the item (optional).
-     * @returns A promise that resolves to the updated Item, or null if not found.
+     * Elimina un cliente por su ID.
+     * @param id - El ID del cliente a eliminar.
      */
-    async updateItem(
-        id: number,
-        newName?: string,
-        newPrice?: number
-    ): Promise<Item | null> {
-        if (newName === undefined && newPrice === undefined) {
-            return null;
-        }
-
-        const updateData: Partial<Item> = {};
-        if (newName !== undefined) {
-            updateData.name = newName;
-        }
-        if (newPrice !== undefined) {
-            updateData.price = newPrice;
-        }
-
-        const count = await db<Item>('items')
-            .where({ id })
-            .update(updateData);
-
-        if (count === 0) {
-            return null;
-        }
-
-        const updatedItem = await db<Item>('items').where({ id }).first();
-        return updatedItem || null;
+    async deleteClient(id: string): Promise<void> {
+        await db<ClientModel>('clients').where({ id }).del();
     }
 
     /**
-     * Deletes an item by its ID.
-     * @param id - The ID of the item to delete.
-     * @returns A promise that resolves to true if the item was deleted, false otherwise.
+     * Lista todos los clientes.
+     * @returns Un array de clientes.
      */
-    async deleteItem(id: number): Promise<boolean> {
-        const count = await db<Item>('items')
-            .where({ id })
-            .del();
-
-        return count > 0;
-    }
-
-    /**
-     * Retrieves all items from the 'items' table.
-     * @returns A promise that resolves to an array of Items.
-     */
-    async listAllItems(): Promise<Item[]> {
-        const items = await db<Item>('items').select('*');
-        return items;
+    async listAllClients(): Promise<ClientModel[]> {
+        return await db<ClientModel>('clients').select('*');
     }
 }
