@@ -58,8 +58,8 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const { id, webhookUrl } = request.payload as ClientConfig;
             try {
+                const { id, webhookUrl } = request.payload as ClientConfig;
                 whatsappWrapper.addClient({ id, webhookUrl });
                 return h
                     .response({
@@ -96,8 +96,14 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const clients = whatsappWrapper.listClients();
-            return h.response({ clients });
+            try {
+                const clients = whatsappWrapper.listClients();
+                return h.response({ clients });
+
+            } catch (error) {
+
+                return h.response({ error: error.message }).code(400);
+            }
         },
     });
 
@@ -127,8 +133,8 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const { id } = request.params as { id: string };
             try {
+                const { id } = request.params as { id: string };
                 const status = whatsappWrapper.getClientStatus(id);
                 return h.response({ id, status });
             } catch (error: any) {
@@ -162,8 +168,8 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const { id } = request.params as { id: string };
             try {
+                const { id } = request.params as { id: string };
                 whatsappWrapper.removeClient(id);
                 return h.response({ message: `Client ${id} removed successfully.` });
             } catch (error: any) {
@@ -198,9 +204,9 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const { id } = request.params as { id: string };
-            const { url } = request.payload as { url: string };
             try {
+                const { id } = request.params as { id: string };
+                const { url } = request.payload as { url: string };
                 whatsappWrapper.setWebhook(id, url);
                 return h.response({ message: `Webhook set for client ${id}.` });
             } catch (error: any) {
@@ -235,9 +241,9 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: async (request, h) => {
-            const { id } = request.params as { id: string };
-            const { to, message } = request.payload as { to: string; message: string };
             try {
+                const { id } = request.params as { id: string };
+                const { to, message } = request.payload as { to: string; message: string };
                 await whatsappWrapper.sendMessage(id, to, message);
                 return h.response({ message: `Message sent to ${to} from client ${id}.` });
             } catch (error: any) {
@@ -272,9 +278,9 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: async (request, h) => {
-            const { id } = request.params as { id: string };
-            const { to, file, caption } = request.payload as { to: string; file: string; caption?: string };
             try {
+                const { id } = request.params as { id: string };
+                const { to, file, caption } = request.payload as { to: string; file: string; caption?: string };
                 const media = MessageMedia.fromFilePath(file); // Leer el archivo local
                 await whatsappWrapper.sendMedia(id, to, media, caption);
                 return h.response({ message: `Media sent to ${to} from client ${id}.` });
@@ -310,8 +316,8 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
             },
         },
         handler: (request, h) => {
-            const { id } = request.params as { id: string };
             try {
+                const { id } = request.params as { id: string };
                 const qr = whatsappWrapper.getQRCode(id);
                 if (qr) {
                     return h.response({ qr }).type('application/json');
