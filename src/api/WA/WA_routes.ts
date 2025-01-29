@@ -69,6 +69,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
                     })
                     .code(201);
             } catch (error: any) {
+                console.error(error);
                 return h.response({ error: error.message }).code(400);
             }
         },
@@ -102,6 +103,7 @@ export const WhatsAppClientDefineRoutes = async (server: Server) => {
 
             } catch (error) {
 
+                console.error(error);
                 return h.response({ error: error.message }).code(400);
             }
         },

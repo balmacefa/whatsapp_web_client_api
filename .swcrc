@@ -1,11 +1,11 @@
 {
   "jsc": {
     "parser": {
-      "syntax": "typescript"
+      "syntax": "typescript",
+      "tsx": false,
+      "dynamicImport": true
     },
     "target": "es2018"
   },
-  "module": {
-    "type": "commonjs"
-  }
+  "sourceMaps": true
 }
