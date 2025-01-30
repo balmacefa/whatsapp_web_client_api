@@ -116,7 +116,7 @@ router.post(
  */
 router.get('/clients', async (req: Request, res: Response) => {
     try {
-        const clients = whatsappWrapper.listClients();
+        const clients = await whatsappWrapper.listClients();
         res.json({ clients });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -391,7 +391,7 @@ router.post(
 
 /**
  * @swagger
- * /clients/{id}/qr:
+ * /clients/{id}/base64_qr:
  *   get:
  *     tags: [QR]
  *     summary: Get client QR code
@@ -417,6 +417,61 @@ router.post(
  *         description: No QR code available
  */
 router.get(
+    '/clients/:id/base64_qr',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+    }),
+    (req: Request, res: Response): void => {
+        try {
+            const { id } = req.params;
+            const base64_qr = whatsappWrapper.getQRCode(id);
+
+            if (!base64_qr) {
+                res.status(404).json({
+                    message: `No QR code available for client ${id}.`
+                });
+                return;
+            }
+
+            res.json({ base64_qr });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
+        }
+    }
+);
+
+// list enpoint returns the qr code as an image instead of base64
+
+/**
+     * @swagger
+     * /clients/{id}/qr:
+     *   get:
+     *     tags: [QR]
+     *     summary: Get client QR code
+     *     description: Retrieve current QR code for client authentication as PNG image
+     *     produces:
+     *       - image/png
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Client ID
+     *     responses:
+     *       200:
+     *         description: QR code image
+     *         content:
+     *           image/png:
+     *             schema:
+     *               type: string
+     *               format: binary
+     *       404:
+     *         description: No QR code available
+     */
+router.get(
     '/clients/:id/qr',
     celebrate({
         [Segments.PARAMS]: Joi.object({
@@ -435,12 +490,19 @@ router.get(
                 return;
             }
 
-            res.json({ qr });
+            // Convert base64 to buffer
+            const base64Data = qr.replace(/^data:image\/png;base64,/, "");
+            const imgBuffer = Buffer.from(base64Data, 'base64');
+
+            res.set('Content-Type', 'image/png');
+            res.send(imgBuffer);
+
         } catch (error: any) {
             res.status(404).json({ error: error.message });
         }
     }
 );
+
 
 export const defineRoutes = (app: any) => {
     app.use('/api', router);

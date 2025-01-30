@@ -6,7 +6,7 @@
     "scripts": {
         "start": "node ./dist/src/index.js",
         "build": "swc src -d dist",
-        "dev": "nodemon --exec \"node -r @swc-node/register src/index.ts\" --watch src",
+        "dev": "nodemon --exec \"node -r @swc-node/register src/index.ts\" --watch src --ext ts",
         "test": "jest e2e"
     },
     "author": "El Dorado Dev Team",

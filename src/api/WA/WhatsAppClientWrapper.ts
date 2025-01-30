@@ -222,6 +222,12 @@ export class WhatsAppClientWrapper {
         if (!client) {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
+
+        // if the status is qr, the client is not ready yet
+        if (this.getClientStatus(id) === 'qr') {
+            throw new Error(`El cliente ${id} no está listo para enviar mensajes. Escanea el código QR primero.`);
+        }
+
         try {
             await client.sendMessage(to, message);
             console.log(`Mensaje enviado a ${to} desde el cliente ${id}`);
@@ -305,11 +311,22 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Lista todos los IDs de los clientes activos.
-     * @returns Un array de IDs de clientes.
+     * List all clients with their webhook URL, QR code (if available), and status.
+     * @returns Array of client objects containing id, webhookUrl, qr, and status.
      */
-    listClients(): string[] {
-        return Array.from(this.clients.keys());
+    async listClients(): Promise<Array<{
+        id: string;
+        webhookUrl: string | undefined;
+        qr: string | undefined;
+        status: string;
+    }>> {
+        const clientsInfo = await this.getClientsInfo();
+        return clientsInfo.map(client => ({
+            id: client.id,
+            webhookUrl: client.webhookUrl,
+            qr: this.getQRCode(client.id),
+            status: this.getClientStatus(client.id),
+        }));
     }
 
     /**
