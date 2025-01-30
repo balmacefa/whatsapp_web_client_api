@@ -1,40 +1,26 @@
-import { createHttpTerminator } from "http-terminator";
-import { startServer } from "./server";
-import { ENV } from "./server/global_variables";
-import { AddShutdown } from "./server/process_exit_handlers";
-
+import { createHttpTerminator } from 'http-terminator';
+import { startServer } from './server';
+import { AddShutdown } from './server/process_exit_handlers';
 
 async function main() {
-    const server = await startServer()
+    const server = await startServer();
 
-    const httpTerminatorHapi = createHttpTerminator({
-        server: server.listener,
+    const httpTerminator = createHttpTerminator({
+        server,
     });
 
     // Add hook for graceful shutdown
-    AddShutdown('Hapi connections', async () => {
-        // Close here connections (Redis, DB, etc.)
+    AddShutdown('Express connections', async () => {
         console.log(
-            'No longer accepting new requests. Waiting for pending requests to finish before shutting down the Hapi server.'
+            'No longer accepting new requests. Waiting for pending requests to finish before shutting down the server.'
         );
-        await httpTerminatorHapi.terminate();
-        console.log(
-            'All pending requests have finished. Shutting down the Hapi server...'
-        );
+        await httpTerminator.terminate();
+        console.log('All pending requests have finished. Shutting down the server...');
     });
-
-    ENV.server_isReady = true;
-    ENV.server_isHealthy = true;
 }
 
-// if this file is run directly, run main
 if (require.main === module) {
-
-    // Run self-contained async function
     (async () => {
-        // Run Main
         await main();
-        // Set shutdown process
     })();
-
 }

@@ -1,6 +1,8 @@
 // wrappers/WhatsAppClientWrapper.ts
 
 import axios from 'axios';
+import * as fs from 'fs';
+import path from 'path';
 import * as qrcode from 'qrcode';
 import { Client, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
 import { ClientModel, ClientRepository } from './items_db_repository';
@@ -87,7 +89,7 @@ export class WhatsAppClientWrapper {
         }
 
         const client = new Client({
-            authStrategy: new LocalAuth({ clientId: id, dataPath: './data/wwebjs_auth ' }), // Usar LocalAuth para múltiples sesiones
+            authStrategy: new LocalAuth({ clientId: id, dataPath: './data/wwebjs_auth' }), // Usar LocalAuth para múltiples sesiones
         });
 
         client.on('qr', async (qr) => {
@@ -265,18 +267,39 @@ export class WhatsAppClientWrapper {
      */
     async removeClient(id: string): Promise<void> {
         const client = this.clients.get(id);
+        const executionPath = process.cwd();
+        const sessionPath = path.join(executionPath, 'data', 'wwebjs_auth', `session-${id}`);
+        // `${executionPath}/data/wwebjs_auth/session-${id}`;
+
+        // data\wwebjs_auth \session-me
+        function deleteFolder() {
+            if (fs.existsSync(sessionPath)) {
+                fs.rm(sessionPath, { recursive: true }, (err) => {
+                    if (err) {
+                        console.error(`Error al eliminar el directorio de la sesión ${id}:`, err);
+                        throw err;
+                    }
+                });
+                console.log(`Cliente ${id} eliminado.`);
+            }
+        }
+
         if (client) {
             try {
+                // await client.logout();
                 await client.destroy();
                 this.clients.delete(id);
                 await this.clientRepository.deleteClient(id);
                 this.qrCodes.delete(id);
+
+                deleteFolder();
                 console.log(`Cliente ${id} eliminado.`);
             } catch (error) {
                 console.error(`Error al eliminar el cliente ${id}:`, error);
                 throw error;
             }
         } else {
+            deleteFolder();
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
     }
@@ -298,6 +321,10 @@ export class WhatsAppClientWrapper {
         const client = this.clients.get(id);
         if (!client) {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
+        }
+        // if there is a qr code, the client is not ready yet is on QR code stage
+        if (this.qrCodes.has(id)) {
+            return 'qr';
         }
         return client.info ? 'listo' : 'inicializando';
     }

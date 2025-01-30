@@ -1,46 +1,53 @@
-import Hapi from '@hapi/hapi';
-import Inert from '@hapi/inert';
-import Vision from '@hapi/vision';
-import HapiSwagger from 'hapi-swagger';
+import cors from 'cors';
+import express from 'express';
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 import { defineRoutes } from './api/routes';
 import { ENV } from './server/global_variables';
 
-const getServer = async () => {
-    const server = Hapi.server({
-        host: ENV.HOST,
-        port: ENV.PORT,
-    });
-
-    // Opciones para hapi-swagger
-    const swaggerOptions: HapiSwagger.RegisterOptions = {
+const swaggerOptions: swaggerJSDoc.Options = {
+    definition: {
+        openapi: '3.0.0',
         info: {
             title: 'API de WhatsApp Client',
             version: '1.0.0',
             description: 'Documentación de la API para gestionar clientes de WhatsApp',
         },
-        grouping: 'tags', // Agrupa las rutas por etiquetas
-        // Puedes agregar más opciones según tus necesidades
-    };
+        servers: [{ url: `http://${ENV.HOST}:${ENV.PORT}/api` }],
+        tags: [
+            { name: 'clients', description: 'Client operations' },
+            { name: 'messages', description: 'Message operations' },
+            { name: 'media', description: 'Media operations' },
+            { name: 'qr', description: 'QR code operations' },
+        ],
+    },
+    apis: ['./src/api/routes.*'], // Path to the API routes
+};
 
-    // Registrar los plugins
-    await server.register([
-        Inert,
-        Vision,
-        {
-            plugin: HapiSwagger,
-            options: swaggerOptions,
-        },
-    ]);
+export const createApp = async () => {
+    const app = express();
 
-    await defineRoutes(server);
+    // Middleware
+    app.use(cors());
+    app.use(express.json());
 
-    return server
-}
+    // Swagger setup
+    const swaggerSpec = swaggerJSDoc(swaggerOptions);
+    app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+    // Define routes
+    defineRoutes(app);
+
+    return app;
+};
 
 export const startServer = async () => {
-    const server = await getServer()
-    await server.start()
-    console.log(`Server running on ${server.info.uri}`)
-    return server
+    const app = await createApp();
+    const server = app.listen(ENV.PORT, () => {
+        console.log(`Server running on http://${ENV.HOST}:${ENV.PORT}`);
+        ENV.server_isReady = true;
+        ENV.server_isHealthy = true;
+    });
+
+    return server;
 };

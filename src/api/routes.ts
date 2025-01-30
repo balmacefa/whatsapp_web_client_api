@@ -1,137 +1,447 @@
-// route.ts
-import { Server } from "@hapi/hapi";
-import { ENV } from "../server/global_variables";
-import { WhatsAppClientDefineRoutes } from "./WA/WA_routes";
+import { celebrate, Joi, Segments } from 'celebrate';
+import { Request, Response, Router } from 'express';
+import { MessageMedia } from 'whatsapp-web.js';
+import { ClientRepository } from './WA/items_db_repository';
+import { ClientConfig, WhatsAppClientWrapper } from './WA/WhatsAppClientWrapper';
 
-export const defineRoutes = async (server: Server) => {
-    await WhatsAppClientDefineRoutes(server);
+const router = Router();
+const clientRepository = new ClientRepository();
+const whatsappWrapper = new WhatsAppClientWrapper(clientRepository);
 
-    // Ruta raíz "/"
-    server.route({
-        method: 'GET',
-        path: '/',
-        options: {
-            description: 'Página de Bienvenida',
-            notes: 'Retorna una página HTML de bienvenida con enlace a la documentación de Swagger.',
-            tags: ['api'],
-            // No requiere validación ya que es una página estática
-        },
-        handler: async (request, h) => {
-            const htmlContent = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenido a la API de WhatsApp Client</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ENjdO4Dr2bkBIFxQpeo6QwCUPib1t1Lg1ZlN4JNpG1S5Q5V2lXKgn5qLAzN6A8Q+" crossorigin="anonymous">
-    <style>
-        body {
-            background-color: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+// Initialize clients
+whatsappWrapper.initialize();
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Clients
+ *     description: WhatsApp client management
+ *   - name: Messages
+ *     description: Message operations
+ *   - name: Media
+ *     description: Media operations
+ *   - name: QR
+ *     description: QR code management
+ */
+
+/**
+ * @swagger
+ * /clients:
+ *   post:
+ *     tags: [Clients]
+ *     summary: Create a new client
+ *     description: Create a new WhatsApp client instance
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - webhookUrl
+ *             properties:
+ *               id:
+ *                 type: string
+ *                 description: Unique client ID
+ *               webhookUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: Webhook URL for notifications
+ *     responses:
+ *       201:
+ *         description: Client created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 webhookUrl:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Validation error or client creation failed
+ */
+router.post(
+    '/clients',
+    celebrate({
+        [Segments.BODY]: Joi.object({
+            id: Joi.string().required(),
+            webhookUrl: Joi.string().uri().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id, webhookUrl } = req.body as ClientConfig;
+            await whatsappWrapper.addClient({ id, webhookUrl });
+            res.status(201).json({
+                id,
+                webhookUrl,
+                message: `Client ${id} created successfully.`,
+            });
+        } catch (error) {
+            console.error(error);
+            res.status(400).json({ error: error.message });
         }
-        .welcome-card {
-            max-width: 600px;
-            margin: auto;
-            padding: 2rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-radius: 12px;
-            background-color: #ffffff;
-            transition: transform 0.3s;
+    }
+);
+
+/**
+ * @swagger
+ * /clients:
+ *   get:
+ *     tags: [Clients]
+ *     summary: List all clients
+ *     description: Retrieve list of all registered clients
+ *     responses:
+ *       200:
+ *         description: List of clients
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 clients:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       webhookUrl:
+ *                         type: string
+ */
+router.get('/clients', async (req: Request, res: Response) => {
+    try {
+        const clients = whatsappWrapper.listClients();
+        res.json({ clients });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+/**
+ * @swagger
+ * /clients/{id}/status:
+ *   get:
+ *     tags: [Clients]
+ *     summary: Get client status
+ *     description: Retrieve current status of a specific client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: Client status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *       404:
+ *         description: Client not found
+ */
+router.get(
+    '/clients/:id/status',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const status = await whatsappWrapper.getClientStatus(id);
+            res.json({ id, status });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
         }
-        .welcome-card:hover {
-            transform: translateY(-10px);
+    }
+);
+
+/**
+ * @swagger
+ * /clients/{id}:
+ *   delete:
+ *     tags: [Clients]
+ *     summary: Delete a client
+ *     description: Remove a specific client instance
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: Client removed successfully
+ *       404:
+ *         description: Client not found
+ */
+router.delete(
+    '/clients/:id',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            await whatsappWrapper.removeClient(id);
+            res.json({ message: `Client ${id} removed successfully.` });
+        } catch (error) {
+            console.error(error);
+            res.status(404).json({ error: error.message });
         }
-        .welcome-card h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: #25D366;
+    }
+);
+
+/**
+ * @swagger
+ * /clients/{id}/webhook:
+ *   post:
+ *     tags: [Clients]
+ *     summary: Set client webhook
+ *     description: Update webhook URL for a specific client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *     responses:
+ *       200:
+ *         description: Webhook updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Client not found
+ */
+router.post(
+    '/clients/:id/webhook',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+        [Segments.BODY]: Joi.object({
+            url: Joi.string().uri().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { url } = req.body;
+            await whatsappWrapper.setWebhook(id, url);
+            res.json({ message: `Webhook set for client ${id}.` });
+        } catch (error: any) {
+            const statusCode = error.message.includes('not found') ? 404 : 400;
+            res.status(statusCode).json({ error: error.message });
         }
-        .welcome-card p.lead {
-            font-size: 1.25rem;
-            color: #4a4a4a;
+    }
+);
+
+/**
+ * @swagger
+ * /clients/{id}/send-message:
+ *   post:
+ *     tags: [Messages]
+ *     summary: Send text message
+ *     description: Send a text message through a specific client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - to
+ *               - message
+ *             properties:
+ *               to:
+ *                 type: string
+ *                 description: Recipient phone number
+ *               message:
+ *                 type: string
+ *                 description: Message content
+ *     responses:
+ *       200:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Validation error or sending failed
+ */
+router.post(
+    '/clients/:id/send-message',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+        [Segments.BODY]: Joi.object({
+            to: Joi.string().required(),
+            message: Joi.string().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { to, message } = req.body;
+            await whatsappWrapper.sendMessage(id, to, message);
+            res.json({ message: `Message sent to ${to} from client ${id}.` });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
         }
-        .btn-custom {
-            background-color: #25D366;
-            border-color: #25D366;
-            transition: background-color 0.3s, border-color 0.3s;
+    }
+);
+
+/**
+ * @swagger
+ * /clients/{id}/send-media:
+ *   post:
+ *     tags: [Media]
+ *     summary: Send media file
+ *     description: Send a media file through a specific client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - to
+ *               - file
+ *             properties:
+ *               to:
+ *                 type: string
+ *                 description: Recipient phone number
+ *               file:
+ *                 type: string
+ *                 description: Path to media file
+ *               caption:
+ *                 type: string
+ *                 description: Optional media caption
+ *     responses:
+ *       200:
+ *         description: Media sent successfully
+ *       400:
+ *         description: Validation error or sending failed
+ */
+router.post(
+    '/clients/:id/send-media',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+        [Segments.BODY]: Joi.object({
+            to: Joi.string().required(),
+            file: Joi.string().required(),
+            caption: Joi.string().optional(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { to, file, caption } = req.body;
+            const media = MessageMedia.fromFilePath(file);
+            await whatsappWrapper.sendMedia(id, to, media, caption);
+            res.json({ message: `Media sent to ${to} from client ${id}.` });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
         }
-        .btn-custom:hover {
-            background-color: #1DA851;
-            border-color: #1DA851;
-        }
-        @media (max-width: 576px) {
-            .welcome-card {
-                padding: 1.5rem;
+    }
+);
+
+/**
+ * @swagger
+ * /clients/{id}/qr:
+ *   get:
+ *     tags: [QR]
+ *     summary: Get client QR code
+ *     description: Retrieve current QR code for client authentication
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: QR code data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 qr:
+ *                   type: string
+ *       404:
+ *         description: No QR code available
+ */
+router.get(
+    '/clients/:id/qr',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+    }),
+    (req: Request, res: Response): void => {
+        try {
+            const { id } = req.params;
+            const qr = whatsappWrapper.getQRCode(id);
+
+            if (!qr) {
+                res.status(404).json({
+                    message: `No QR code available for client ${id}.`
+                });
+                return;
             }
-            .welcome-card h1 {
-                font-size: 2rem;
-            }
-            .welcome-card p.lead {
-                font-size: 1rem;
-            }
+
+            res.json({ qr });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
         }
-    </style>
-</head>
-<body>
-    <div class="container vh-100 d-flex justify-content-center align-items-center">
-        <div class="welcome-card text-center">
-            <h1>¡Bienvenido a la API de WhatsApp Client!</h1>
-            <p class="lead">Esta API te permite gestionar clientes de WhatsApp de manera eficiente.</p>
-            <hr class="my-4">
-            <p>Para ver la documentación completa y probar los endpoints, visita la interfaz de Swagger.</p>
-            <a class="btn btn-custom btn-lg mt-3" href="/documentation" role="button" aria-label="Ir a la Documentación de Swagger">Ir a la Documentación de Swagger</a>
-        </div>
-    </div>
-    <!-- Bootstrap JS y dependencias -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+V9KK0Mkx0hi+4zDk87C9+u5dE9uM" crossorigin="anonymous"></script>
-</body>
-</html>
-            `;
+    }
+);
 
-            return h.response(htmlContent).type('text/html');
-        }
-    });
-
-    // Ruta /health
-    server.route({
-        method: 'GET',
-        path: '/health',
-        handler: (request, h) => {
-            if (ENV.server_isHealthy) {
-                return {
-                    status: 'OK',
-                    message: 'The server is healthy and running normally.',
-                };
-            }
-            return h
-                .response({
-                    status: 'DOWN',
-                    message: 'The server is currently unhealthy.',
-                })
-                .code(503);
-        },
-    });
-
-    // Ruta /ready
-    server.route({
-        method: 'GET',
-        path: '/ready',
-        handler: (request, h) => {
-            if (ENV.server_isReady) {
-                return {
-                    status: 'READY',
-                    message: 'The server is ready to accept requests.',
-                };
-            }
-            return h
-                .response({
-                    status: 'NOT READY',
-                    message: 'The server is not ready to accept requests yet.',
-                })
-                .code(503);
-
-        },
-    });
-}
+export const defineRoutes = (app: any) => {
+    app.use('/api', router);
+};
