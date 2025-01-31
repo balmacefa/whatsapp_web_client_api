@@ -503,6 +503,135 @@ router.get(
     }
 );
 
+// get contacts endpoint
+/**
+ * @swagger
+ * /clients/{id}/contacts:
+ *   get:
+ *     tags: [Clients]
+ *     summary: Get client contacts
+ *     description: Retrieve list of contacts for a specific client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: List of contacts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 contacts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *       404:
+ *         description: Client not found or contacts not available
+ */
+router.get(
+    '/clients/:id/contacts',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const contacts = await whatsappWrapper.getContacts(id);
+            res.json({ contacts });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
+        }
+    }
+);
+
+// getChatMessages endpoint, request id, contact id, and limit *optional*
+/**
+ * @swagger
+ * /clients/{id}/chats/{contactId}:
+ *   get:
+ *     tags: [Messages]
+ *     summary: Get chat messages
+ *     description: Retrieve chat messages for a specific contact
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *       - in: path
+ *         name: contactId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Contact ID
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *         description: Number of messages to retrieve
+ *     responses:
+ *       200:
+ *         description: List of chat messages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *              properties:
+ *                messages:
+ *                 type: array
+ *                items:
+ *                type: object
+ *               properties:
+ *                id:
+ *                type: string
+ *               fromMe:
+ *               type: boolean
+ *              body:
+ *              type: string
+ *             type:
+ *            type: string
+ *           timestamp:
+ *          type: string
+ *      404:
+ *        description: Client not found or chat messages not available
+ *     400:
+ *      description: Validation error
+ *    */
+router.get(
+    '/clients/:id/chats/:contactId',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+            contactId: Joi.string().required(),
+        }),
+        [Segments.QUERY]: Joi.object({
+            limit: Joi.number().optional(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id, contactId } = req.params;
+            const limit = req.query.limit ? Number(req.query.limit) : undefined;
+            const messages = await whatsappWrapper.getChatMessages(id, contactId, limit);
+            res.json({ messages });
+        } catch (error: any) {
+            res.status(404).json({ error: error.message });
+        }
+    }
+);
 
 export const defineRoutes = (app: any) => {
     app.use('/api', router);

@@ -4,7 +4,7 @@ import axios from 'axios';
 import * as fs from 'fs';
 import path from 'path';
 import * as qrcode from 'qrcode';
-import { Client, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
+import WAWebJS, { Client, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
 import { ClientModel, ClientRepository } from './items_db_repository';
 
 export interface ClientConfig {
@@ -344,5 +344,39 @@ export class WhatsAppClientWrapper {
             return 'qr';
         }
         return client.info ? 'listo' : 'inicializando';
+    }
+
+    // get contacts
+    async getContacts(id: string): Promise<WAWebJS.Contact[]> {
+        const client = this.clients.get(id);
+        if (!client) {
+            throw new Error(`Cliente con ID ${id} no encontrado.`);
+        }
+        return await client.getContacts();
+    }
+
+    // get chat messages history
+    async getChatMessages(id: string, contactId: string, limit?: number): Promise<WAWebJS.Message[]> {
+        const client = this.clients.get(id);
+        if (!client) {
+            throw new Error(`Cliente con ID ${id} no encontrado.`);
+        }
+
+        try {
+            const chat = await client.getChatById(contactId);
+
+            if (!chat) {
+                throw new Error(`No se encontró el chat con el ID ${contactId}`);
+            }
+
+            const messages = await chat.fetchMessages({ limit });
+
+            return messages;
+
+        } catch (error) {
+            console.error(`Error al obtener el chat con el ID ${contactId}:`, error);
+            throw error;
+        }
+
     }
 }
