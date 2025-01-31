@@ -19,7 +19,7 @@ export interface ClientInfo {
 
 export class WhatsAppClientWrapper {
     private clients: Map<string, Client>;
-    private qrCodes: Map<string, string>; // Almacena los códigos QR en base64
+    private qrCodes: Map<string, string>; // Stores QR codes in base64
     private clientRepository: ClientRepository;
 
     constructor(clientRepository: ClientRepository) {
@@ -29,7 +29,7 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Inicializa la tabla de clientes y restaura las sesiones existentes.
+     * Initializes the client table and restores existing sessions.
      */
     async initialize(): Promise<void> {
         await this.clientRepository.initializeClientsTable();
@@ -40,19 +40,19 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Agrega un nuevo cliente: lo guarda en la DB y lo inicializa.
-     * @param config - Configuración del cliente que incluye el ID y el webhookUrl.
+     * Adds a new client: saves it to the DB and initializes it.
+     * @param config - Client configuration including ID and webhookUrl.
      */
     async addClient(config: ClientConfig): Promise<void> {
         const { id, webhookUrl } = config;
 
-        // Verificar si el cliente ya existe en la DB
+        // Check if the client already exists in the DB
         const existingClient = await this.clientRepository.getClientById(id);
         if (existingClient) {
             throw new Error(`El cliente con ID ${id} ya existe en la base de datos.`);
         }
 
-        // Guardar el cliente en la base de datos
+        // Save the client in the DB
         const newClient: ClientModel = {
             id,
             webhook_url: webhookUrl,
@@ -66,21 +66,21 @@ export class WhatsAppClientWrapper {
             throw error;
         }
 
-        // Inicializar el cliente
+        // Initialize the client
         try {
             await this.createClient(id);
             console.log(`Cliente ${id} inicializado correctamente.`);
         } catch (error) {
             console.error(`Error al inicializar el cliente ${id}:`, error);
-            // Opcional: eliminar el cliente de la DB si la inicialización falla
+            // Optionally: remove the client from the DB if initialization fails
             await this.clientRepository.deleteClient(id);
             throw error;
         }
     }
 
     /**
-     * Crea e inicializa un cliente de WhatsApp para el ID proporcionado.
-     * @param id - El identificador único para el cliente.
+     * Creates and initializes a WhatsApp client for the given ID.
+     * @param id - The unique identifier for the client.
      */
     private async createClient(id: string): Promise<void> {
         if (this.clients.has(id)) {
@@ -101,38 +101,45 @@ export class WhatsAppClientWrapper {
 
         client.on('qr', async (qr) => {
             console.log(`QR RECIBIDO para el cliente ${id}`);
-            // Convertir el QR a base64
+            // Convert the QR code to base64
             const qrBase64 = await qrcode.toDataURL(qr);
             this.qrCodes.set(id, qrBase64);
 
-            // Enviar el QR al webhook si está configurado
+            // Send the QR code to the webhook if configured
             const webhookUrl = await this.getWebhookUrl(id);
             if (webhookUrl) {
-                axios.post(webhookUrl, {
-                    type: 'qr',
-                    payload: {
-                        clientId: id,
-                        qr: qrBase64,
-                    },
-                });
+                try {
+                    await this.sendWebhook(webhookUrl, {
+                        type: 'qr',
+                        payload: {
+                            clientId: id,
+                            qr: qrBase64,
+                        },
+                    });
+                } catch (error) {
+                    console.error(`Error sending webhook (QR) for client ${id}:`, error);
+                }
             }
         });
 
         client.on('ready', async () => {
             console.log(`Cliente ${id} está listo!`);
-            this.qrCodes.delete(id); // Eliminar el QR una vez que el cliente esté listo
+            this.qrCodes.delete(id); // Remove QR code once client is ready
 
-            // Enviar un mensaje al webhook para notificar que el cliente está listo
+            // Notify webhook that the client is ready
             const webhookUrl = await this.getWebhookUrl(id);
             if (webhookUrl) {
-                axios.post(webhookUrl, {
-                    type: 'ready',
-                    payload: {
-                        clientId: id,
-                    },
-                });
+                try {
+                    await this.sendWebhook(webhookUrl, {
+                        type: 'ready',
+                        payload: {
+                            clientId: id,
+                        },
+                    });
+                } catch (error) {
+                    console.error(`Error sending webhook (ready) for client ${id}:`, error);
+                }
             }
-
         });
 
         client.on('message', async (msg: Message) => {
@@ -147,7 +154,7 @@ export class WhatsAppClientWrapper {
                         clientId: id,
                     };
 
-                    // Si el mensaje tiene medios, descargarlos y agregarlos al payload
+                    // If the message has media, download it and add to the payload
                     if (msg.hasMedia) {
                         const media = await msg.downloadMedia();
                         if (media) {
@@ -159,7 +166,7 @@ export class WhatsAppClientWrapper {
                         }
                     }
 
-                    await axios.post(webhookUrl, {
+                    await this.sendWebhook(webhookUrl, {
                         type: 'message',
                         payload,
                     });
@@ -171,52 +178,61 @@ export class WhatsAppClientWrapper {
         });
 
         client.on('disconnected', async (reason) => {
-
             console.log(`Cliente ${id} desconectado. Motivo: ${reason}`);
 
-            // Enviar un mensaje al webhook para notificar que el cliente está desconectado
+            // Notify webhook that the client is disconnected
             const webhookUrl = await this.getWebhookUrl(id);
             if (webhookUrl) {
-                axios.post(webhookUrl, {
-                    type: 'disconnected',
-                    payload: {
-                        clientId: id,
-                        reason,
-                    },
-                });
+                try {
+                    await this.sendWebhook(webhookUrl, {
+                        type: 'disconnected',
+                        payload: {
+                            clientId: id,
+                            reason,
+                        },
+                    });
+                } catch (error) {
+                    console.error(`Error sending webhook (disconnected) for client ${id}:`, error);
+                }
             }
-
         });
 
         client.on('auth_failure', async (msg) => {
             console.error(`Error de autenticación para el cliente ${id}:`, msg);
 
-            // Enviar un mensaje al webhook para notificar el error de autenticación
+            // Notify webhook about authentication failure
             const webhookUrl = await this.getWebhookUrl(id);
             if (webhookUrl) {
-                axios.post(webhookUrl, {
-                    type: 'auth_failure',
-                    payload: {
-                        clientId: id,
-                        message: msg,
-                    },
-                });
+                try {
+                    await this.sendWebhook(webhookUrl, {
+                        type: 'auth_failure',
+                        payload: {
+                            clientId: id,
+                            message: msg,
+                        },
+                    });
+                } catch (error) {
+                    console.error(`Error sending webhook (auth_failure) for client ${id}:`, error);
+                }
             }
-
         });
 
         client.on('change_state', async (state) => {
             console.log(`Estado del cliente ${id}:`, state);
-            // Enviar un mensaje al webhook para notificar el cambio de estado
+            // Notify webhook about state change
             const webhookUrl = await this.getWebhookUrl(id);
             if (webhookUrl) {
-                axios.post(webhookUrl, {
-                    type: 'change_state',
-                    payload: {
-                        clientId: id,
-                        state,
-                    },
-                });
+                try {
+                    await this.sendWebhook(webhookUrl, {
+                        type: 'change_state',
+                        payload: {
+                            clientId: id,
+                            state,
+                        },
+                    });
+                } catch (error) {
+                    console.error(`Error sending webhook (change_state) for client ${id}:`, error);
+                }
             }
         });
 
@@ -230,18 +246,18 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Restaura múltiples sesiones a partir de un array de configuraciones de clientes.
-     * Este método asume que los clientes ya existen en la base de datos.
-     * @param configs - Array de configuraciones de clientes que contienen el ID y el webhookUrl.
+     * Restores multiple sessions from an array of client configurations.
+     * Assumes the clients already exist in the database.
+     * @param configs - Array of client configurations with ID and webhookUrl.
      */
     async restoreSessions(configs: ClientConfig[]): Promise<void> {
         for (const config of configs) {
             const { id, webhookUrl } = config;
             try {
-                // Verificar si el cliente ya existe en la DB
+                // Check if the client already exists in the DB
                 const existingClient = await this.clientRepository.getClientById(id);
                 if (!existingClient) {
-                    // Si no existe, crear y guardar el cliente
+                    // If not, create and save the client
                     const newClient: ClientModel = { id, webhook_url: webhookUrl };
                     await this.clientRepository.createClient(newClient);
                     console.log(`Cliente ${id} guardado en la base de datos.`);
@@ -255,8 +271,8 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Retorna una lista de todos los clientes con sus respectivos webhooks.
-     * @returns Array de objetos que contienen el ID del cliente y su webhookUrl.
+     * Returns a list of all clients with their respective webhooks.
+     * @returns Array of objects containing client ID and webhookUrl.
      */
     async getClientsInfo(): Promise<ClientInfo[]> {
         const clients = await this.clientRepository.listAllClients();
@@ -267,9 +283,9 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Configura el webhook para un cliente específico y actualiza la base de datos.
-     * @param id - El identificador único para el cliente.
-     * @param url - La URL del webhook.
+     * Configures the webhook for a specific client and updates the database.
+     * @param id - The unique identifier for the client.
+     * @param url - The webhook URL.
      */
     async setWebhook(id: string, url: string): Promise<void> {
         const client = this.clients.get(id);
@@ -286,9 +302,9 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Obtiene la URL del webhook para un cliente específico.
-     * @param id - El identificador único para el cliente.
-     * @returns La URL del webhook o undefined si no está configurada.
+     * Gets the webhook URL for a specific client.
+     * @param id - The unique identifier for the client.
+     * @returns The webhook URL or undefined if not configured.
      */
     async getWebhookUrl(id: string): Promise<string | undefined> {
         const client = await this.clientRepository.getClientById(id);
@@ -296,10 +312,10 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Envía un mensaje de texto a un destinatario específico.
-     * @param id - El identificador único para el cliente.
-     * @param to - El número de teléfono del destinatario en formato internacional.
-     * @param message - El contenido del mensaje.
+     * Sends a text message to a specific recipient.
+     * @param id - The unique identifier for the client.
+     * @param to - The recipient's phone number in international format.
+     * @param message - The message content.
      */
     async sendMessage(id: string, to: string, message: string): Promise<void> {
         const client = this.clients.get(id);
@@ -307,7 +323,7 @@ export class WhatsAppClientWrapper {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
 
-        // if the status is qr, the client is not ready yet
+        // If the status is "qr", the client is not ready yet
         if (this.getClientStatus(id) === 'qr') {
             throw new Error(`El cliente ${id} no está listo para enviar mensajes. Escanea el código QR primero.`);
         }
@@ -322,11 +338,11 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Envía un mensaje de medios a un destinatario específico.
-     * @param id - El identificador único para el cliente.
-     * @param to - El número de teléfono del destinatario en formato internacional.
-     * @param media - El contenido de medios a enviar.
-     * @param caption - (Opcional) Una leyenda para el medio.
+     * Sends a media message to a specific recipient.
+     * @param id - The unique identifier for the client.
+     * @param to - The recipient's phone number in international format.
+     * @param media - The media content to send.
+     * @param caption - (Optional) A caption for the media.
      */
     async sendMedia(id: string, to: string, media: MessageMedia, caption?: string): Promise<void> {
         const client = this.clients.get(id);
@@ -343,17 +359,17 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Obtiene el código QR en base64 para un cliente específico.
-     * @param id - El identificador único para el cliente.
-     * @returns El código QR en base64 o undefined si no está disponible.
+     * Retrieves the QR code in base64 for a specific client.
+     * @param id - The unique identifier for the client.
+     * @returns The QR code in base64 or undefined if not available.
      */
     getQRCode(id: string): string | undefined {
         return this.qrCodes.get(id);
     }
 
     /**
-     * Elimina un cliente, destruye la sesión y elimina los registros de la base de datos.
-     * @param id - El identificador único para el cliente.
+     * Removes a client: destroys the session and removes DB records.
+     * @param id - The unique identifier for the client.
      */
     async removeClient(id: string): Promise<void> {
         const client = this.clients.get(id);
@@ -361,7 +377,7 @@ export class WhatsAppClientWrapper {
         const sessionPath = path.join(executionPath, 'data', 'wwebjs_auth', `session-${id}`);
         // `${executionPath}/data/wwebjs_auth/session-${id}`;
 
-        // data\wwebjs_auth \session-me
+        // data\wwebjs_auth\session-me
         function deleteFolder() {
             if (fs.existsSync(sessionPath)) {
                 fs.rm(sessionPath, { recursive: true }, (err) => {
@@ -395,7 +411,7 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * List all clients with their webhook URL, QR code (if available), and status.
+     * Lists all clients with their webhook URL, QR code (if available), and status.
      * @returns Array of client objects containing id, webhookUrl, qr, and status.
      */
     async listClients(): Promise<Array<{
@@ -414,23 +430,25 @@ export class WhatsAppClientWrapper {
     }
 
     /**
-     * Obtiene el estado de un cliente específico.
-     * @param id - El identificador único para el cliente.
-     * @returns El estado del cliente ('listo' o 'inicializando').
+     * Retrieves the status of a specific client.
+     * @param id - The unique identifier for the client.
+     * @returns The client status ('listo' or 'inicializando').
      */
     getClientStatus(id: string): string {
         const client = this.clients.get(id);
         if (!client) {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
-        // if there is a qr code, the client is not ready yet is on QR code stage
+        // If there is a QR code, the client is not ready (still in QR stage)
         if (this.qrCodes.has(id)) {
             return 'qr';
         }
         return client.info ? 'listo' : 'inicializando';
     }
 
-    // get contacts
+    /**
+     * Retrieves contacts.
+     */
     async getContacts(id: string): Promise<WAWebJS.Contact[]> {
         const client = this.clients.get(id);
         if (!client) {
@@ -439,7 +457,9 @@ export class WhatsAppClientWrapper {
         return await client.getContacts();
     }
 
-    // get chat messages history
+    /**
+     * Retrieves chat messages history.
+     */
     async getChatMessages(id: string, contactId: string, limit?: number): Promise<WAWebJS.Message[]> {
         const client = this.clients.get(id);
         if (!client) {
@@ -454,13 +474,36 @@ export class WhatsAppClientWrapper {
             }
 
             const messages = await chat.fetchMessages({ limit });
-
             return messages;
 
         } catch (error) {
             console.error(`Error al obtener el chat con el ID ${contactId}:`, error);
             throw error;
         }
+    }
 
+    /**
+     * Centralized function to send a webhook notification.
+     * Uses a try/catch with an auto-retry mechanism up to 5 times.
+     * @param url - The webhook URL.
+     * @param data - The payload to send.
+     */
+    private async sendWebhook(url: string, data: any): Promise<void> {
+        const maxRetries = 5;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await axios.post(url, data);
+                return; // Success: exit the function
+            } catch (error) {
+                console.error(`Intento ${attempt} fallido para enviar webhook a ${url}:`, error);
+                if (attempt === maxRetries) {
+                    console.error(`Fallo al enviar webhook tras ${maxRetries} intentos.`);
+                    // throw error;
+                    return; // Exit the function after max retries
+                }
+                // Wait before retrying (incremental delay: e.g., 1 second per attempt)
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
     }
 }
