@@ -5,7 +5,7 @@ import swaggerUi from 'swagger-ui-express';
 import { defineRoutes } from './api/routes';
 import { ENV } from './server/global_variables';
 
-console.log('Hello, ENV.PROD_HOST!', ENV.PROD_HOST);
+console.log('ENV.PROD_HOST!', ENV.PROD_HOST);
 
 const swaggerOptions: swaggerJSDoc.Options = {
     definition: {

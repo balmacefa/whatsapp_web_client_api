@@ -1,9 +1,3 @@
-
-
-console.log('Hello, World!', process.env);
-console.log('Hello, World!', process.env['PROD_HOST']);
-console.log('Hello, World!', process.env.PROD_HOST);
-console.log('Hello, World!', process.env['PROD_HOST'] || 'http://localhost:3000');
 export const ENV = {
     PORT: (process.env.PORT || 3000) as number,
     HOST: process.env.HOST || 'localhost',
