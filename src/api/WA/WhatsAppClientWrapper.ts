@@ -89,7 +89,14 @@ export class WhatsAppClientWrapper {
         }
 
         const client = new Client({
-            authStrategy: new LocalAuth({ clientId: id, dataPath: './data/wwebjs_auth' }), // Usar LocalAuth para múltiples sesiones
+            authStrategy: new LocalAuth({
+                clientId: id,
+                dataPath: './data/wwebjs_auth'
+            }),
+            puppeteer: {
+                args: ["--no-sandbox", '--disable-setuid-sandbox'],
+                headless: true,
+            }
         });
 
         client.on('qr', async (qr) => {
