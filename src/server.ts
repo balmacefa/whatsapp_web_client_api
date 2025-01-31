@@ -13,7 +13,7 @@ const swaggerOptions: swaggerJSDoc.Options = {
             version: '1.0.0',
             description: 'Documentación de la API para gestionar clientes de WhatsApp',
         },
-        servers: [{ url: `${ENV.PROD_HOST}/api` }, { url: `http://${ENV.HOST}:${ENV.PORT}/api` }],
+        servers: [{ url: ENV.PROD_HOST }],
         tags: [
             { name: 'clients', description: 'Client operations' },
             { name: 'messages', description: 'Message operations' },

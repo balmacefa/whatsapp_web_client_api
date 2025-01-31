@@ -169,7 +169,7 @@ whatsappWrapper.initialize();
 
 /**
  * @swagger
- * /clients:
+ * /api/clients:
  *   post:
  *     tags: [Clients]
  *     summary: Create a new client
@@ -222,7 +222,7 @@ router.post(
 
 /**
  * @swagger
- * /clients:
+ * /api/clients:
  *   get:
  *     tags: [Clients]
  *     summary: List all clients
@@ -264,7 +264,7 @@ router.get('/clients', async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /clients/{id}/status:
+ * /api/clients/{id}/status:
  *   get:
  *     tags: [Clients]
  *     summary: Get client status
@@ -317,7 +317,7 @@ router.get(
 
 /**
  * @swagger
- * /clients/{id}:
+ * /api/clients/{id}:
  *   delete:
  *     tags: [Clients]
  *     summary: Delete a client
@@ -369,7 +369,7 @@ router.delete(
 
 /**
  * @swagger
- * /clients/{id}/webhook:
+ * /api/clients/{id}/webhook:
  *   post:
  *     tags: [Clients]
  *     summary: Set client webhook
@@ -437,7 +437,7 @@ router.post(
 
 /**
  * @swagger
- * /clients/{id}/send-message:
+ * /api/clients/{id}/send-message:
  *   post:
  *     tags: [Messages]
  *     summary: Send text message
@@ -499,7 +499,7 @@ router.post(
 
 /**
  * @swagger
- * /clients/{id}/send-media:
+ * /api/clients/{id}/send-media:
  *   post:
  *     tags: [Media]
  *     summary: Send media file
@@ -563,7 +563,7 @@ router.post(
 
 /**
  * @swagger
- * /clients/{id}/base64_qr:
+ * /api/clients/{id}/base64_qr:
  *   get:
  *     tags: [QR]
  *     summary: Get client QR code
@@ -619,7 +619,7 @@ router.get(
 
 /**
  * @swagger
- * /clients/{id}/qr:
+ * /api/clients/{id}/qr:
  *   get:
  *     tags: [QR]
  *     summary: Get client QR code
@@ -684,7 +684,7 @@ router.get(
 
 /**
  * @swagger
- * /clients/{id}/contacts:
+ * /api/clients/{id}/contacts:
  *   get:
  *     tags: [Clients]
  *     summary: Get client contacts
@@ -732,7 +732,7 @@ router.get(
 
 /**
  * @swagger
- * /clients/{id}/chats/{contactId}:
+ * /api/clients/{id}/chats/{contactId}:
  *   get:
  *     tags: [Messages]
  *     summary: Get chat messages
