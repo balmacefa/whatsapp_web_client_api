@@ -9,13 +9,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm install --only=production
 
 # Copy source code
 COPY . .
 
 # Change ownership of /app to pptruser
 USER root
+RUN npm install
 RUN chown -R pptruser:pptruser /app
 USER pptruser
 
