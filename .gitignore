@@ -3,3 +3,4 @@ mock.ts
 dist/
 database.sqlite
 data/
+.wwebjs_cache/
