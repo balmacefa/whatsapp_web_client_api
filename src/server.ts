@@ -17,7 +17,7 @@ const swaggerOptions: swaggerJSDoc.Options = {
         openapi: '3.0.0',
         info: {
             title: 'API de WhatsApp Client',
-            version: '1.0.0',
+            version: packageJson.version,
             description: 'Documentación de la API para gestionar clientes de WhatsApp',
         },
         servers: [{ url: ENV.PROD_HOST }],
