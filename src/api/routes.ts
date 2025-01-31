@@ -10,6 +10,130 @@ const clientRepository = new ClientRepository();
 const whatsappWrapper = new WhatsAppClientWrapper(clientRepository);
 
 /**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     BearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *   schemas:
+ *     ClientConfig:
+ *       type: object
+ *       required:
+ *         - id
+ *         - webhookUrl
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Unique client ID
+ *         webhookUrl:
+ *           type: string
+ *           format: uri
+ *           description: Webhook URL for notifications
+ *     CreateClientResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         webhookUrl:
+ *           type: string
+ *         message:
+ *           type: string
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
+ *     WebhookUpdateRequest:
+ *       type: object
+ *       required:
+ *         - url
+ *       properties:
+ *         url:
+ *           type: string
+ *           format: uri
+ *     SendMessageRequest:
+ *       type: object
+ *       required:
+ *         - to
+ *         - message
+ *       properties:
+ *         to:
+ *           type: string
+ *           description: Recipient phone number
+ *         message:
+ *           type: string
+ *           description: Message content
+ *     SendMediaRequest:
+ *       type: object
+ *       required:
+ *         - to
+ *         - file
+ *       properties:
+ *         to:
+ *           type: string
+ *           description: Recipient phone number
+ *         file:
+ *           type: string
+ *           description: Path to media file
+ *         caption:
+ *           type: string
+ *           description: Optional media caption
+ *     QRCodeResponse:
+ *       type: object
+ *       properties:
+ *         base64_qr:
+ *           type: string
+ *     QRImageResponse:
+ *       type: string
+ *       format: binary
+ *     ContactsResponse:
+ *       type: object
+ *       properties:
+ *         contacts:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *     ChatMessagesResponse:
+ *       type: object
+ *       properties:
+ *         messages:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               fromMe:
+ *                 type: boolean
+ *               body:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               timestamp:
+ *                 type: string
+ */
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Clients
+ *     description: WhatsApp client management
+ *   - name: Messages
+ *     description: Message operations
+ *   - name: Media
+ *     description: Media operations
+ *   - name: QR
+ *     description: QR code management
+ */
+
+/**
  * Middleware to validate API Key using the Authorization header.
  * Expected format: Authorization: Bearer <API_KEY>
  */
@@ -35,9 +159,6 @@ export const apiKeyMiddleware = (req: Request, res: Response, next: NextFunction
         return;
     }
 
-    // Optionally, you can attach the API key or associated user/client info to the request object
-    // req.apiKey = apiKey;
-
     next();
 };
 
@@ -48,57 +169,32 @@ whatsappWrapper.initialize();
 
 /**
  * @swagger
- * tags:
- *   - name: Clients
- *     description: WhatsApp client management
- *   - name: Messages
- *     description: Message operations
- *   - name: Media
- *     description: Media operations
- *   - name: QR
- *     description: QR code management
- */
-
-/**
- * @swagger
  * /clients:
  *   post:
  *     tags: [Clients]
  *     summary: Create a new client
  *     description: Create a new WhatsApp client instance
+ *     security:
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - id
- *               - webhookUrl
- *             properties:
- *               id:
- *                 type: string
- *                 description: Unique client ID
- *               webhookUrl:
- *                 type: string
- *                 format: uri
- *                 description: Webhook URL for notifications
+ *             $ref: '#/components/schemas/ClientConfig'
  *     responses:
  *       201:
  *         description: Client created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 webhookUrl:
- *                   type: string
- *                 message:
- *                   type: string
+ *               $ref: '#/components/schemas/CreateClientResponse'
  *       400:
  *         description: Validation error or client creation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post(
     '/clients',
@@ -131,6 +227,8 @@ router.post(
  *     tags: [Clients]
  *     summary: List all clients
  *     description: Retrieve list of all registered clients
+ *     security:
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: List of clients
@@ -148,6 +246,12 @@ router.post(
  *                         type: string
  *                       webhookUrl:
  *                         type: string
+ *       400:
+ *         description: Error retrieving clients
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/clients', async (req: Request, res: Response) => {
     try {
@@ -165,6 +269,8 @@ router.get('/clients', async (req: Request, res: Response) => {
  *     tags: [Clients]
  *     summary: Get client status
  *     description: Retrieve current status of a specific client
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -186,6 +292,10 @@ router.get('/clients', async (req: Request, res: Response) => {
  *                   type: string
  *       404:
  *         description: Client not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get(
     '/clients/:id/status',
@@ -212,6 +322,8 @@ router.get(
  *     tags: [Clients]
  *     summary: Delete a client
  *     description: Remove a specific client instance
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -222,8 +334,19 @@ router.get(
  *     responses:
  *       200:
  *         description: Client removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       404:
  *         description: Client not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete(
     '/clients/:id',
@@ -251,6 +374,8 @@ router.delete(
  *     tags: [Clients]
  *     summary: Set client webhook
  *     description: Update webhook URL for a specific client
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -263,20 +388,29 @@ router.delete(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - url
- *             properties:
- *               url:
- *                 type: string
- *                 format: uri
+ *             $ref: '#/components/schemas/WebhookUpdateRequest'
  *     responses:
  *       200:
  *         description: Webhook updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Client not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post(
     '/clients/:id/webhook',
@@ -308,6 +442,8 @@ router.post(
  *     tags: [Messages]
  *     summary: Send text message
  *     description: Send a text message through a specific client
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -320,22 +456,23 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - to
- *               - message
- *             properties:
- *               to:
- *                 type: string
- *                 description: Recipient phone number
- *               message:
- *                 type: string
- *                 description: Message content
+ *             $ref: '#/components/schemas/SendMessageRequest'
  *     responses:
  *       200:
  *         description: Message sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       400:
  *         description: Validation error or sending failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post(
     '/clients/:id/send-message',
@@ -367,6 +504,8 @@ router.post(
  *     tags: [Media]
  *     summary: Send media file
  *     description: Send a media file through a specific client
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -379,25 +518,23 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - to
- *               - file
- *             properties:
- *               to:
- *                 type: string
- *                 description: Recipient phone number
- *               file:
- *                 type: string
- *                 description: Path to media file
- *               caption:
- *                 type: string
- *                 description: Optional media caption
+ *             $ref: '#/components/schemas/SendMediaRequest'
  *     responses:
  *       200:
  *         description: Media sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
  *       400:
  *         description: Validation error or sending failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post(
     '/clients/:id/send-media',
@@ -431,6 +568,8 @@ router.post(
  *     tags: [QR]
  *     summary: Get client QR code
  *     description: Retrieve current QR code for client authentication
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -444,12 +583,13 @@ router.post(
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 qr:
- *                   type: string
+ *               $ref: '#/components/schemas/QRCodeResponse'
  *       404:
  *         description: No QR code available
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get(
     '/clients/:id/base64_qr',
@@ -477,35 +617,39 @@ router.get(
     }
 );
 
-// list enpoint returns the qr code as an image instead of base64
-
 /**
-     * @swagger
-     * /clients/{id}/qr:
-     *   get:
-     *     tags: [QR]
-     *     summary: Get client QR code
-     *     description: Retrieve current QR code for client authentication as PNG image
-     *     produces:
-     *       - image/png
-     *     parameters:
-     *       - in: path
-     *         name: id
-     *         required: true
-     *         schema:
-     *           type: string
-     *         description: Client ID
-     *     responses:
-     *       200:
-     *         description: QR code image
-     *         content:
-     *           image/png:
-     *             schema:
-     *               type: string
-     *               format: binary
-     *       404:
-     *         description: No QR code available
-     */
+ * @swagger
+ * /clients/{id}/qr:
+ *   get:
+ *     tags: [QR]
+ *     summary: Get client QR code
+ *     description: Retrieve current QR code for client authentication as PNG image
+ *     security:
+ *       - BearerAuth: []
+ *     produces:
+ *       - image/png
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     responses:
+ *       200:
+ *         description: QR code image
+ *         content:
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: No QR code available
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get(
     '/clients/:id/qr',
     celebrate({
@@ -538,7 +682,6 @@ router.get(
     }
 );
 
-// get contacts endpoint
 /**
  * @swagger
  * /clients/{id}/contacts:
@@ -546,6 +689,8 @@ router.get(
  *     tags: [Clients]
  *     summary: Get client contacts
  *     description: Retrieve list of contacts for a specific client
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -559,19 +704,13 @@ router.get(
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 contacts:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       name:
- *                         type: string
+ *               $ref: '#/components/schemas/ContactsResponse'
  *       404:
  *         description: Client not found or contacts not available
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get(
     '/clients/:id/contacts',
@@ -591,7 +730,6 @@ router.get(
     }
 );
 
-// getChatMessages endpoint, request id, contact id, and limit *optional*
 /**
  * @swagger
  * /clients/{id}/chats/{contactId}:
@@ -599,6 +737,8 @@ router.get(
  *     tags: [Messages]
  *     summary: Get chat messages
  *     description: Retrieve chat messages for a specific contact
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -623,28 +763,20 @@ router.get(
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *              properties:
- *                messages:
- *                 type: array
- *                items:
- *                type: object
- *               properties:
- *                id:
- *                type: string
- *               fromMe:
- *               type: boolean
- *              body:
- *              type: string
- *             type:
- *            type: string
- *           timestamp:
- *          type: string
- *      404:
- *        description: Client not found or chat messages not available
- *     400:
- *      description: Validation error
- *    */
+ *               $ref: '#/components/schemas/ChatMessagesResponse'
+ *       404:
+ *         description: Client not found or chat messages not available
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get(
     '/clients/:id/chats/:contactId',
     celebrate({
