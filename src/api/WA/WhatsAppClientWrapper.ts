@@ -97,11 +97,35 @@ export class WhatsAppClientWrapper {
             // Convertir el QR a base64
             const qrBase64 = await qrcode.toDataURL(qr);
             this.qrCodes.set(id, qrBase64);
+
+            // Enviar el QR al webhook si está configurado
+            const webhookUrl = await this.getWebhookUrl(id);
+            if (webhookUrl) {
+                axios.post(webhookUrl, {
+                    type: 'qr',
+                    payload: {
+                        clientId: id,
+                        qr: qrBase64,
+                    },
+                });
+            }
         });
 
-        client.on('ready', () => {
+        client.on('ready', async () => {
             console.log(`Cliente ${id} está listo!`);
             this.qrCodes.delete(id); // Eliminar el QR una vez que el cliente esté listo
+
+            // Enviar un mensaje al webhook para notificar que el cliente está listo
+            const webhookUrl = await this.getWebhookUrl(id);
+            if (webhookUrl) {
+                axios.post(webhookUrl, {
+                    type: 'ready',
+                    payload: {
+                        clientId: id,
+                    },
+                });
+            }
+
         });
 
         client.on('message', async (msg: Message) => {
@@ -128,11 +152,64 @@ export class WhatsAppClientWrapper {
                         }
                     }
 
-                    await axios.post(webhookUrl, payload);
+                    await axios.post(webhookUrl, {
+                        type: 'message',
+                        payload,
+                    });
                     console.log(`Mensaje enviado al webhook para el cliente ${id}`);
                 } catch (error) {
                     console.error(`Error al enviar el mensaje al webhook para el cliente ${id}:`, error);
                 }
+            }
+        });
+
+        client.on('disconnected', async (reason) => {
+
+            console.log(`Cliente ${id} desconectado. Motivo: ${reason}`);
+
+            // Enviar un mensaje al webhook para notificar que el cliente está desconectado
+            const webhookUrl = await this.getWebhookUrl(id);
+            if (webhookUrl) {
+                axios.post(webhookUrl, {
+                    type: 'disconnected',
+                    payload: {
+                        clientId: id,
+                        reason,
+                    },
+                });
+            }
+
+        });
+
+        client.on('auth_failure', async (msg) => {
+            console.error(`Error de autenticación para el cliente ${id}:`, msg);
+
+            // Enviar un mensaje al webhook para notificar el error de autenticación
+            const webhookUrl = await this.getWebhookUrl(id);
+            if (webhookUrl) {
+                axios.post(webhookUrl, {
+                    type: 'auth_failure',
+                    payload: {
+                        clientId: id,
+                        message: msg,
+                    },
+                });
+            }
+
+        });
+
+        client.on('change_state', async (state) => {
+            console.log(`Estado del cliente ${id}:`, state);
+            // Enviar un mensaje al webhook para notificar el cambio de estado
+            const webhookUrl = await this.getWebhookUrl(id);
+            if (webhookUrl) {
+                axios.post(webhookUrl, {
+                    type: 'change_state',
+                    payload: {
+                        clientId: id,
+                        state,
+                    },
+                });
             }
         });
 
