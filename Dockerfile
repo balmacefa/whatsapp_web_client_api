@@ -7,6 +7,9 @@ WORKDIR /app
 
 # Copy package files and install only production dependencies
 COPY package*.json ./
+USER root
+RUN npm install -g npm@latest
+USER pptruser
 RUN npm install --omit=dev
 
 # Copy source code
