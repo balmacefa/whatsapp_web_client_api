@@ -482,6 +482,23 @@ export class WhatsAppClientWrapper {
         }
     }
 
+    // this send an audio base64 to a contact
+    public async sendAudioAsVoice(id: string, to: string, mimeType: string, base64: string): Promise<void> {
+        const client = this.clients.get(id);
+        if (!client) {
+            throw new Error(`Cliente con ID ${id} no encontrado.`);
+        }
+        try {
+            const media = new MessageMedia(mimeType, base64);
+            await client.sendMessage(to, media, { sendAudioAsVoice: true });
+            console.log(`Audio enviado a ${to} desde el cliente ${id}`);
+        } catch (error) {
+            console.error(`Error al enviar el audio desde el cliente ${id}:`, error);
+            throw error;
+        }
+    }
+
+
     /**
      * Centralized function to send a webhook notification.
      * Uses a try/catch with an auto-retry mechanism up to 5 times.
