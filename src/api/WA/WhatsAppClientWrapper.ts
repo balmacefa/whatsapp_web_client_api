@@ -516,8 +516,17 @@ export class WhatsAppClientWrapper {
                 throw new Error(`Webhook no configurado para el cliente ${id}.`);
             }
 
-            const response = await axios.post(webhookUrl, data);
-            console.log(`Webhook POST response for ${webhookUrl}:`, response.data);
+            const urls = webhookUrl.split('|');
+
+            urls.forEach(async (url) => {
+                try {
+                    const response = await axios.post(url, data);
+                    console.log(`Webhook POST response for ${url}:`, response.data);
+                } catch (error) {
+                    console.error(`Intento fallido para enviar webhook POST a ${id}:`, error);
+                }
+            });
+
             return; // Success: exit the function
         } catch (error) {
             console.error(`Intento fallido para enviar webhook POST a ${id}:`, error);
