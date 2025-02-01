@@ -4,7 +4,7 @@ import axios from 'axios';
 import * as fs from 'fs';
 import path from 'path';
 import * as qrcode from 'qrcode';
-import WAWebJS, { Client, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
+import WAWebJS, { Client, Events, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
 import { convertToOggOpus } from './AudioconvertToOggOpus';
 import { ClientModel, ClientRepository } from './items_db_repository';
 
@@ -128,7 +128,8 @@ export class WhatsAppClientWrapper {
             });
         });
 
-        client.on('message', async (msg: Message) => {
+
+        client.on(Events.MESSAGE_CREATE, async (msg: Message) => {
             console.log(`Mensaje recibido del cliente ${id}:`, msg.body);
 
             const payload: any = {
@@ -151,7 +152,35 @@ export class WhatsAppClientWrapper {
             }
 
             await this.sendWebhook(id, {
-                type: 'message',
+                type: Events.MESSAGE_CREATE,
+                payload,
+            });
+        });
+
+        client.on(Events.MESSAGE_RECEIVED, async (msg: Message) => {
+            console.log(`Mensaje recibido del cliente ${id}:`, msg.body);
+
+            const payload: any = {
+                from: msg.from,
+                body: msg.body,
+                timestamp: msg.timestamp,
+                clientId: id,
+            };
+
+            // If the message has media, download it and add to the payload
+            if (msg.hasMedia) {
+                const media = await msg.downloadMedia();
+                if (media) {
+                    payload.media = {
+                        mimetype: media.mimetype,
+                        data_base_64: media.data,
+                        filename: media.filename,
+                    };
+                }
+            }
+
+            await this.sendWebhook(id, {
+                type: Events.MESSAGE_RECEIVED,
                 payload,
             });
 
