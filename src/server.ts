@@ -8,6 +8,7 @@ import { defineRoutes } from './api/routes';
 import { ENV } from './server/global_variables';
 
 
+
 const executionPath = process.cwd();
 const packageJsonPath = path.join(executionPath, 'package.json');
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
@@ -36,7 +37,11 @@ export const createApp = async () => {
 
     // Middleware
     app.use(cors());
-    app.use(express.json());
+    // Middleware
+    app.use(cors());
+    // Aumentamos el límite de la petición para JSON y urlencoded
+    app.use(express.json({ limit: '50mb' }));
+    app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
     // Swagger setup
     const swaggerSpec = swaggerJSDoc(swaggerOptions);

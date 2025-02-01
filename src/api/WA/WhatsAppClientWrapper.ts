@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import path from 'path';
 import * as qrcode from 'qrcode';
 import WAWebJS, { Client, LocalAuth, Message, MessageMedia } from 'whatsapp-web.js';
+import { convertToOggOpus } from './AudioconvertToOggOpus';
 import { ClientModel, ClientRepository } from './items_db_repository';
 
 export interface ClientConfig {
@@ -489,8 +490,15 @@ export class WhatsAppClientWrapper {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
         try {
-            const media = new MessageMedia(mimeType, base64);
+
+            // Convertimos cualquier audio recibido a formato OGG usando el códec Opus.
+            const convertedBase64 = await convertToOggOpus(base64, mimeType);
+            // Definimos el mimetype de salida. Aunque se muestra "audio/ogg", la conversión usa Opus.
+            const newMimeType = 'audio/ogg';
+
+            const media = new MessageMedia(newMimeType, convertedBase64);
             await client.sendMessage(to, media, { sendAudioAsVoice: true });
+
             console.log(`Audio enviado a ${to} desde el cliente ${id}`);
         } catch (error) {
             console.error(`Error al enviar el audio desde el cliente ${id}:`, error);
