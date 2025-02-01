@@ -106,21 +106,13 @@ export class WhatsAppClientWrapper {
             const qrBase64 = await qrcode.toDataURL(qr);
             this.qrCodes.set(id, qrBase64);
 
-            // Send the QR code to the webhook if configured
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'qr',
-                        payload: {
-                            clientId: id,
-                            qr: qrBase64,
-                        },
-                    });
-                } catch (error) {
-                    console.error(`Error sending webhook (QR) for client ${id}:`, error);
-                }
-            }
+            await this.sendWebhook(id, {
+                type: 'qr',
+                payload: {
+                    clientId: id,
+                    qr: qrBase64,
+                },
+            });
         });
 
         client.on('ready', async () => {
@@ -128,113 +120,79 @@ export class WhatsAppClientWrapper {
             this.qrCodes.delete(id); // Remove QR code once client is ready
 
             // Notify webhook that the client is ready
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'ready',
-                        payload: {
-                            clientId: id,
-                        },
-                    });
-                } catch (error) {
-                    console.error(`Error sending webhook (ready) for client ${id}:`, error);
-                }
-            }
+            await this.sendWebhook(id, {
+                type: 'ready',
+                payload: {
+                    clientId: id,
+                },
+            });
         });
 
         client.on('message', async (msg: Message) => {
             console.log(`Mensaje recibido del cliente ${id}:`, msg.body);
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    const payload: any = {
-                        from: msg.from,
-                        body: msg.body,
-                        timestamp: msg.timestamp,
-                        clientId: id,
+
+            const payload: any = {
+                from: msg.from,
+                body: msg.body,
+                timestamp: msg.timestamp,
+                clientId: id,
+            };
+
+            // If the message has media, download it and add to the payload
+            if (msg.hasMedia) {
+                const media = await msg.downloadMedia();
+                if (media) {
+                    payload.media = {
+                        mimetype: media.mimetype,
+                        data_base_64: media.data,
+                        filename: media.filename,
                     };
-
-                    // If the message has media, download it and add to the payload
-                    if (msg.hasMedia) {
-                        const media = await msg.downloadMedia();
-                        if (media) {
-                            payload.media = {
-                                mimetype: media.mimetype,
-                                data: media.data,
-                                filename: media.filename,
-                            };
-                        }
-                    }
-
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'message',
-                        payload,
-                    });
-                    console.log(`Mensaje enviado al webhook para el cliente ${id}`);
-                } catch (error) {
-                    console.error(`Error al enviar el mensaje al webhook para el cliente ${id}:`, error);
                 }
             }
+
+            await this.sendWebhook(id, {
+                type: 'message',
+                payload,
+            });
+
         });
 
         client.on('disconnected', async (reason) => {
             console.log(`Cliente ${id} desconectado. Motivo: ${reason}`);
 
             // Notify webhook that the client is disconnected
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'disconnected',
-                        payload: {
-                            clientId: id,
-                            reason,
-                        },
-                    });
-                } catch (error) {
-                    console.error(`Error sending webhook (disconnected) for client ${id}:`, error);
-                }
-            }
+            await this.sendWebhook(id, {
+                type: 'disconnected',
+                payload: {
+                    clientId: id,
+                    reason,
+                },
+            });
         });
 
         client.on('auth_failure', async (msg) => {
             console.error(`Error de autenticación para el cliente ${id}:`, msg);
 
             // Notify webhook about authentication failure
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'auth_failure',
-                        payload: {
-                            clientId: id,
-                            message: msg,
-                        },
-                    });
-                } catch (error) {
-                    console.error(`Error sending webhook (auth_failure) for client ${id}:`, error);
-                }
-            }
+            await this.sendWebhook(id, {
+                type: 'auth_failure',
+                payload: {
+                    clientId: id,
+                    message: msg,
+                },
+            });
         });
 
         client.on('change_state', async (state) => {
             console.log(`Estado del cliente ${id}:`, state);
             // Notify webhook about state change
-            const webhookUrl = await this.getWebhookUrl(id);
-            if (webhookUrl) {
-                try {
-                    await this.sendWebhook(webhookUrl, {
-                        type: 'change_state',
-                        payload: {
-                            clientId: id,
-                            state,
-                        },
-                    });
-                } catch (error) {
-                    console.error(`Error sending webhook (change_state) for client ${id}:`, error);
-                }
-            }
+            await this.sendWebhook(id, {
+                type: 'change_state',
+                payload: {
+                    clientId: id,
+                    state,
+                },
+            });
         });
 
         try {
@@ -513,22 +471,27 @@ export class WhatsAppClientWrapper {
      * @param url - The webhook URL.
      * @param data - The payload to send.
      */
-    private async sendWebhook(url: string, data: any): Promise<void> {
-        const maxRetries = 5;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                await axios.post(url, data);
-                return; // Success: exit the function
-            } catch (error) {
-                console.error(`Intento ${attempt} fallido para enviar webhook a ${url}:`, error);
-                if (attempt === maxRetries) {
-                    console.error(`Fallo al enviar webhook tras ${maxRetries} intentos.`);
-                    // throw error;
-                    return; // Exit the function after max retries
-                }
-                // Wait before retrying (incremental delay: e.g., 1 second per attempt)
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    private async sendWebhook(id: string, data: any): Promise<void> {
+        try {
+
+            const client = this.clients.get(id);
+            if (!client) {
+                throw new Error(`Cliente con ID ${id} no encontrado.`);
             }
+
+            const webhookUrl = await this.getWebhookUrl(id);
+
+            if (!webhookUrl) {
+                throw new Error(`Webhook no configurado para el cliente ${id}.`);
+            }
+
+            const response = await axios.post(webhookUrl, data);
+            console.log(`Webhook POST response for ${webhookUrl}:`, response.data);
+            return; // Success: exit the function
+        } catch (error) {
+            console.error(`Intento fallido para enviar webhook POST a ${id}:`, error);
+
         }
+
     }
 }
