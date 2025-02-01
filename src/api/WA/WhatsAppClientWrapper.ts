@@ -136,6 +136,7 @@ export class WhatsAppClientWrapper {
                 from: msg.from,
                 body: msg.body,
                 timestamp: msg.timestamp,
+                msg,
                 clientId: id,
             };
 
@@ -164,6 +165,7 @@ export class WhatsAppClientWrapper {
                 from: msg.from,
                 body: msg.body,
                 timestamp: msg.timestamp,
+                msg,
                 clientId: id,
             };
 
