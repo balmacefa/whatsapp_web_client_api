@@ -419,7 +419,7 @@ router.post(
             id: Joi.string().required(),
         }),
         [Segments.BODY]: Joi.object({
-            url: Joi.string().uri().required(),
+            url: Joi.string().required(),
         }),
     }),
     async (req: Request, res: Response) => {
