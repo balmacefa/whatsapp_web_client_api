@@ -128,36 +128,6 @@ export class WhatsAppClientWrapper {
             });
         });
 
-
-        client.on(Events.MESSAGE_CREATE, async (msg: Message) => {
-            console.log(`Mensaje recibido del cliente ${id}:`, msg.body);
-
-            const payload: any = {
-                from: msg.from,
-                body: msg.body,
-                timestamp: msg.timestamp,
-                msg,
-                clientId: id,
-            };
-
-            // If the message has media, download it and add to the payload
-            if (msg.hasMedia) {
-                const media = await msg.downloadMedia();
-                if (media) {
-                    payload.media = {
-                        mimetype: media.mimetype,
-                        data_base_64: media.data,
-                        filename: media.filename,
-                    };
-                }
-            }
-
-            await this.sendWebhook(id, {
-                type: Events.MESSAGE_CREATE,
-                payload,
-            });
-        });
-
         client.on(Events.MESSAGE_RECEIVED, async (msg: Message) => {
             console.log(`Mensaje recibido del cliente ${id}:`, msg.body);
 
