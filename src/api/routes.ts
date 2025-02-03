@@ -544,15 +544,19 @@ router.post(
         }),
         [Segments.BODY]: Joi.object({
             to: Joi.string().required(),
-            file: Joi.string().required(),
+            mimetype: Joi.string().required(),
+            base64: Joi.string().required(),
             caption: Joi.string().optional(),
         }),
     }),
     async (req: Request, res: Response) => {
         try {
             const { id } = req.params;
-            const { to, file, caption } = req.body;
-            const media = MessageMedia.fromFilePath(file);
+            const { to, base64, caption, mimetype, } = req.body;
+            const media = new MessageMedia(mimetype, base64,)
+
+
+
             await whatsappWrapper.sendMedia(id, to, media, caption);
             res.json({ message: `Media sent to ${to} from client ${id}.` });
         } catch (error: any) {
