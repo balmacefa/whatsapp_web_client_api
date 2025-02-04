@@ -505,6 +505,35 @@ export class WhatsAppClientWrapper {
 
     }
 
+    private async find_near_msg_in_history(args: {
+        id: string,
+        contactId: string,
+        messageId: string,
+    }) {
+
+        const { id, contactId, messageId } = args;
+        const client = this.clients.get(id);
+        if (!client) {
+            throw new Error(`Cliente con ID ${id} no encontrado.`);
+        }
+
+        const chat = await client.getChatById(contactId);
+
+        if (!chat) {
+            throw new Error(`No se encontró el chat con el ID ${contactId}`);
+        }
+
+
+        const message = (await chat.fetchMessages({ limit: 50, })).find(msg => {
+            if (msg.id._serialized === messageId) {
+                return true
+            }
+        });
+
+        return message
+
+    }
+
     public async reactToMessage(args: {
         id: string,
         contactId: string,
@@ -526,12 +555,7 @@ export class WhatsAppClientWrapper {
                     throw new Error(`No se encontró el chat con el ID ${contactId}`);
                 }
 
-                const messages = (await chat.fetchMessages({ limit: 50, })).find(msg => {
-                    if (msg.id._serialized === messageId) {
-                        return true
-                    }
-                });
-
+                const messages: WAWebJS.Message | undefined = await this.find_near_msg_in_history(args);
 
                 if (!messages) {
                     throw new Error(`messages con ID ${messageId} no encontrado.`);
