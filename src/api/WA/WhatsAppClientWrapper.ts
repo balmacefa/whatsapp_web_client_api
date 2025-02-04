@@ -504,4 +504,54 @@ export class WhatsAppClientWrapper {
         }
 
     }
+
+    public async reactToMessage(args: {
+        id: string,
+        contactId: string,
+        messageId: string,
+        reaction: string
+    }): Promise<void> {
+        try {
+
+            const { id, contactId, messageId, reaction } = args;
+            const client = this.clients.get(id);
+            if (!client) {
+                throw new Error(`Cliente con ID ${id} no encontrado.`);
+            }
+
+            try {
+                const chat = await client.getChatById(contactId);
+
+                if (!chat) {
+                    throw new Error(`No se encontró el chat con el ID ${contactId}`);
+                }
+
+                const messages = (await chat.fetchMessages({ limit: 50, })).find(msg => {
+                    if (msg.id._serialized === messageId) {
+                        return true
+                    }
+                });
+
+
+                if (!messages) {
+                    throw new Error(`messages con ID ${messageId} no encontrado.`);
+                }
+
+                try {
+                    await messages.react(reaction);
+
+                } catch (error) {
+                    throw new Error(`EROR REACTING TO messages con ID ${messageId}.`, error);
+                }
+
+            } catch (error) {
+                console.error(`Error al obtener el chat con el ID ${contactId}:`, error);
+                throw error;
+            }
+
+        } catch (error) {
+            console.error(`Intento fallido`, error);
+        }
+
+    }
 }

@@ -871,6 +871,82 @@ router.post(
 );
 
 
+
+
+/**
+ * @swagger
+ * /api/clients/{id}/send-audio-as-voice:
+ *   post:
+ *     tags: [Media]
+ *     summary: Send audio as voice message
+ *     description: Send an audio file as voice message through a specific client
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Client ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SendMediaRequest'
+ *     responses:
+ *       200:
+ *         description: Audio sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Validation error or sending failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+    '/clients/:id/react-to-message',
+    celebrate({
+        [Segments.PARAMS]: Joi.object({
+            id: Joi.string().required(),
+        }),
+        [Segments.BODY]: Joi.object({
+            contactId: Joi.string().required(),
+            messageId: Joi.string().required(),
+            reaction: Joi.string().required(),
+        }),
+    }),
+    async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { contactId, messageId, reaction } = req.body;
+
+            await whatsappWrapper.reactToMessage({
+                id,
+                contactId,
+                messageId,
+                reaction
+            });
+
+            const message = `messages con ID ${messageId}, se agrega reaccion de ${reaction}`
+
+
+            res.json({ message });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+);
+
+
 export const defineRoutes = (app: any) => {
     app.use('/api', router);
 };
