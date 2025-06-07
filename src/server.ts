@@ -285,7 +285,7 @@ export const createApp = async () => {
 export const startServer = async () => {
     const app = await createApp();
     const server = app.listen(ENV.PORT, () => {
-        console.log(`Server running on http://${ENV.HOST}:${ENV.PORT}`);
+        console.log(`Server running on ${ENV.PROD_HOST} , on Port: ${ENV.PORT}`);
         ENV.server_isReady = true;
         ENV.server_isHealthy = true;
     });

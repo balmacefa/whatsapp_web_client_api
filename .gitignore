@@ -4,3 +4,4 @@ dist/
 database.sqlite
 data/
 .wwebjs_cache/
+.env
