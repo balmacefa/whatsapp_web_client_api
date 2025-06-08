@@ -51,6 +51,71 @@ All endpoints require a valid API key. Include it in your request header:
 `Authorization: Bearer your_api_key`
 
 
+# CODE
+Please review the core file `src/api/WA/WhatsAppClientWrapper.ts`
+
+# WhatsAppClientWrapper
+
+This module provides a high-level wrapper for managing multiple WhatsApp Web sessions using [`whatsapp-web.js`](https://github.com/pedroslopez/whatsapp-web.js). It is designed to help backends manage multiple WhatsApp clients, send messages, receive events, and forward notifications using webhooks.
+
+## Features
+
+- 🔒 Supports multiple concurrent sessions with persistent auth (using `LocalAuth`)
+- 🧠 Centralized client/session/QR management
+- 📩 Send text messages, media, and voice notes (with audio conversion to OGG/Opus)
+- 🪝 Configurable webhooks for events (QR, ready, messages, disconnect, etc.)
+- 🗃️ Session storage and restore using a `ClientRepository`
+- 🔁 Webhook retry mechanism (up to 5 times on failure)
+- 📜 Supports retrieving contacts and chat history
+
+
+## Events and Webhooks
+
+The system will automatically send events to the configured webhook URL for each client.
+
+### Event Types
+
+| Event         | Description                             |
+|---------------|-----------------------------------------|
+| `qr`          | QR code generated, sent as base64       |
+| `ready`       | Client is ready                         |
+| `message`     | Message received (text or media)        |
+| `disconnected`| Client disconnected                     |
+| `auth_failure`| Authentication failed                   |
+| `change_state`| WhatsApp client state changed           |
+
+Each webhook receives a JSON payload with:
+
+```json
+{
+  "type": "event_type",
+  "payload": { ... }
+}
+```
+
+## Available Methods
+
+List of methods exposed by the system:
+
+| Method                         | Description                                |
+|--------------------------------|--------------------------------------------|
+| `initialize()`                 | Restore all sessions                       |
+| `addClient(config)`           | Add and initialize a new client           |
+| `sendMessage(id, to, msg)`    | Send a text message                        |
+| `sendMedia(id, to, media)`    | Send media (image, video, etc.)           |
+| `sendAudioAsVoice(...)`       | Convert and send a voice note             |
+| `getQRCode(id)`               | Get QR code as a base64 string             |
+| `removeClient(id)`            | Delete a client completely                 |
+| `getClientsInfo()`            | List all clients                           |
+| `listClients()`               | List clients and their current states      |
+| `getClientStatus(id)`         | Get client status (`qr`, `ready`, etc.)    |
+| `getContacts(id)`             | Get client contacts                        |
+| `getChatMessages(id, cid)`    | Get chat messages for a given chat ID      |
+| `setWebhook(id, url)`         | Set or update the webhook URL              |
+| `getWebhookUrl(id)`           | Get the current webhook URL                |
+
+
+
 ## 📄 License
 
 MIT
