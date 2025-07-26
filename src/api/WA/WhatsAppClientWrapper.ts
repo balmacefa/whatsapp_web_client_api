@@ -284,7 +284,7 @@ export class WhatsAppClientWrapper {
         }
 
         // If the status is "qr", the client is not ready yet
-        if (this.getClientStatus(id) === 'qr') {
+        if (await this.getClientStatus(id) !== WAWebJS.WAState.CONNECTED) {
             throw new Error(`El cliente ${id} no está listo para enviar mensajes. Escanea el código QR primero.`);
         }
 
@@ -381,12 +381,13 @@ export class WhatsAppClientWrapper {
         status: string;
     }>> {
         const clientsInfo = await this.getClientsInfo();
-        return clientsInfo.map(client => ({
+        const result = await Promise.all(clientsInfo.map(async client => ({
             id: client.id,
             webhookUrl: client.webhookUrl,
             qr: this.getQRCode(client.id),
-            status: this.getClientStatus(client.id),
-        }));
+            status: await this.getClientStatus(client.id),
+        })));
+        return result;
     }
 
     /**
@@ -394,16 +395,14 @@ export class WhatsAppClientWrapper {
      * @param id - The unique identifier for the client.
      * @returns The client status ('listo' or 'inicializando').
      */
-    getClientStatus(id: string): string {
+    async getClientStatus(id: string): Promise<string> {
         const client = this.clients.get(id);
         if (!client) {
             throw new Error(`Cliente con ID ${id} no encontrado.`);
         }
-        // If there is a QR code, the client is not ready (still in QR stage)
-        if (this.qrCodes.has(id)) {
-            return 'qr';
-        }
-        return client.info ? 'listo' : 'inicializando';
+
+        const status: string = await client.getState();
+        return status;
     }
 
     /**
