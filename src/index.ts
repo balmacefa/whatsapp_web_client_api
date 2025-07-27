@@ -20,12 +20,7 @@ async function main() {
 
         ENV.server_isReady = false;
         ENV.server_isHealthy = false;
-
-        server.close(() => {
-            console.log('Server has been shut down.');
-            process.exit(0);
-        });
-        
+        process.exit(0);
     });
 }
 
