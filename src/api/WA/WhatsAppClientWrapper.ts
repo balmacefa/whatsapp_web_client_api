@@ -402,6 +402,9 @@ export class WhatsAppClientWrapper {
         }
 
         const status: string = await client.getState();
+        if(status=== null) {
+            return 'qr';
+        }
         return status;
     }
 
