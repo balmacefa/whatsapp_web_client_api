@@ -31,6 +31,13 @@ async function main() {
 
 if (require.main === module) {
     (async () => {
-        await main();
+        try {
+            await main();
+        } catch (error) {
+            console.error('Error with the server:', error);
+            ENV.server_isReady = false;
+            ENV.server_isHealthy = false;
+            // process.exit(1);
+        }
     })();
 }
