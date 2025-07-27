@@ -11,7 +11,7 @@ if (fs.existsSync('.env')) {
 export const ENV = {
     PORT: Number(process.env.PORT || 3000),
     PROD_HOST: process.env.PROD_HOST || 'http://localhost:3000',
-    API_KEYS: (process.env.API_KEYS || 'secure_api_key,change_me').split(','),
+    API_KEYS: (process.env.API_KEYS as string).split(','),
     server_isHealthy: false,
     server_isReady: false,
 };

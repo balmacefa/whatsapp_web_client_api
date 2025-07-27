@@ -40,7 +40,7 @@ To get up and running:
 
 ```bash
 docker build -t whatsapp-api .
-docker run -p 3000:3000 -e PORT=3000 -e API_KEY=your_api_key -e PROD_HOST=https://musical-fishstick-7677jqpgqg2rj4r-3000.app.github.dev whatsapp-api
+docker run -p 3000:3000 -e PORT=3000 -e API_KEYS=your_api_key -e PROD_HOST=https://musical-fishstick-7677jqpgqg2rj4r-3000.app.github.dev whatsapp-api
 ```
 
 ## 🔐 API Authentication

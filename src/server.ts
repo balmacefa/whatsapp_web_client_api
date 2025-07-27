@@ -54,6 +54,22 @@ export const createApp = async () => {
     // Define routes
     defineRoutes(app);
 
+    // routes for health check - /healthz, /ready, /startup
+    app.get('/healthz', (req, res) => {
+        if (ENV.server_isHealthy) {
+            res.status(200).json({ status: 'HEALTHY' });
+        } else {
+            res.status(503).json({ status: 'UNHEALTHY' });
+        }
+    });
+    app.get('/ready', (req, res) => {
+        if (ENV.server_isReady) {
+            res.status(200).json({ status: 'READY' });
+        } else {
+            res.status(503).json({ status: 'NOT READY' });
+        }
+    });
+
     return app;
 };
 

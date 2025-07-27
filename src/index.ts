@@ -1,6 +1,7 @@
 import { createHttpTerminator } from 'http-terminator';
 import { startServer } from './server';
 import { AddShutdown } from './server/process_exit_handlers';
+import { ENV } from './server/global_variables';
 
 async function main() {
     const server = await startServer();
@@ -16,6 +17,15 @@ async function main() {
         );
         await httpTerminator.terminate();
         console.log('All pending requests have finished. Shutting down the server...');
+
+        ENV.server_isReady = false;
+        ENV.server_isHealthy = false;
+
+        server.close(() => {
+            console.log('Server has been shut down.');
+            process.exit(0);
+        });
+        
     });
 }
 
