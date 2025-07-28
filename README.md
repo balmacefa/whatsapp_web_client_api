@@ -2,6 +2,8 @@
 
 A Dockerized Node.js wrapper around [wwebjs](https://wwebjs.dev/) to expose a simple and secure REST API for managing WhatsApp sessions and interactions.
 
+<a href="https://www.buymeacoffee.com/balmacefa" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## 🚀 Features
 
 - **Client Management**  
