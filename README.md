@@ -36,12 +36,28 @@ This project includes a preconfigured Docker image, making it easy to run the se
 
 ## 📦 Getting Started
 
-To get up and running:
+To get up and running, using local repository:
 
 ```bash
 docker build -t whatsapp-api .
-docker run -p 3000:3000 -e PORT=3000 -e API_KEYS=your_api_key -e PROD_HOST=https://musical-fishstick-7677jqpgqg2rj4r-3000.app.github.dev whatsapp-api
+docker run -p 3000:3000 -e PORT=3000 -e API_KEYS=your_api_key -e PROD_HOST=https://subdomain.app.github.dev  -v ~/whatsapp-data:/app/data whatsapp-api
 ```
+
+
+Using the Docker Hub Image:
+
+```bash
+docker run -p 3000:3000 \
+  -e PORT=3000 \
+  -e API_KEYS=supersecretkey \
+  -e PROD_HOST=http://localhost:3000 \
+  -v ~/whatsapp-data:/app/data \
+  balmacefa/whatsapp_web_client_api:1.0.5
+
+```
+https://hub.docker.com/r/balmacefa/whatsapp_web_client_api
+
+
 
 ## 🔐 API Authentication
 
