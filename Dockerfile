@@ -17,6 +17,10 @@ COPY . .
 USER root
 RUN npm install
 RUN chown -R pptruser:pptruser /app
+
+RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
+
+
 USER pptruser
 
 # Ensure authentication directory exists
