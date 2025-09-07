@@ -1,32 +1,30 @@
 # ========================
 # Base Image with Puppeteer
 # ========================
-FROM ghcr.io/puppeteer/puppeteer:24.1.1
+FROM ghcr.io/puppeteer/puppeteer:24.1.1 AS production
 
 WORKDIR /app
 
-# Instalar FFmpeg para conversión de audio
-USER root
-RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
-
-# Copiar archivos de configuración
+# Copy package files and install only production dependencies
 COPY package*.json ./
 
-# Instalar dependencias (solo producción)
-RUN npm install --omit=dev
+# Install production dependencies
 
-# Copiar todo el código fuente
+# Copy source code
 COPY . .
 
-# Ajustar permisos para usuario no root
+# Change ownership of /app to pptruser
+USER root
+RUN npm install
 RUN chown -R pptruser:pptruser /app
 USER pptruser
 
-# Crear directorios para WhatsApp Web JS
-RUN mkdir -p /app/data/wwebjs_auth && mkdir -p /app/.wwebjs_cache
+# Ensure authentication directory exists
+RUN mkdir -p /app/data/wwebjs_auth && chown -R pptruser:pptruser /app/data/wwebjs_auth
+RUN mkdir -p /app/.wwebjs_cache && chown -R pptruser:pptruser /app/.wwebjs_cache
 
-# Exponer puerto
+# Expose port
 EXPOSE 3000
 
-# Comando de inicio
+# Start the application with SWC
 CMD ["node", "-r", "@swc-node/register", "src/index.ts"]
