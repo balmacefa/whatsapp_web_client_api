@@ -54,7 +54,7 @@ docker run -p 3000:3000 \
   -e API_KEYS=supersecretkey \
   -e PROD_HOST=http://localhost:3000 \
   -v ~/whatsapp-data:/app/data \
-  balmacefa/whatsapp_web_client_api:1.0.5
+  balmacefa/whatsapp_web_client_api:1.0.6
 
 ```
 https://hub.docker.com/r/balmacefa/whatsapp_web_client_api
